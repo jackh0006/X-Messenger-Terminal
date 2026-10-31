@@ -100,6 +100,16 @@ done
 # Remove a stale SUMS first so the new file never hashes itself.
 rm -f "$OUT/X-Messenger-$VER-SHA256SUMS.txt"
 (cd "$OUT" && sha256sum X-Messenger-"$VER"-* > "X-Messenger-$VER-SHA256SUMS.txt")
+# Sign SHA256SUMS with minisign (if key available)
+if command -v minisign >/dev/null && [[ -n "${MINISIGN_KEY:-}" ]]; then
+  minisign -Sm "$OUT/X-Messenger-$VER-SHA256SUMS.txt" -k "$MINISIGN_KEY"
+  echo "SHA256SUMS signed with minisign"
+elif command -v ssh-keygen >/dev/null && [[ -n "${SIGNING_KEY_FILE:-}" ]]; then
+  ssh-keygen -Y sign -f "$SIGNING_KEY_FILE" -n "x-messenger-release" < "$OUT/X-Messenger-$VER-SHA256SUMS.txt" > "$OUT/X-Messenger-$VER-SHA256SUMS.txt.sig"
+  echo "SHA256SUMS signed with ssh-keygen"
+else
+  echo "warn: no signing key configured (set MINISIGN_KEY or SIGNING_KEY_FILE)" >&2
+fi
 echo "packages OK — see $OUT"
 
 if [[ "$MODE" != "--publish" ]]; then

@@ -5,6 +5,7 @@ Every score is tied to a specific commit. Scores always refer to the project's o
 
 | Date | Commit | Score | Reviewer | Notes |
 |---|---|---|---|---|
+| 2026-10-31 | d9ef49ef726bcb6c6762558f0545b6162bba97db | **59 / 100** | AI self-audit (Nemotron 3 Ultra) | **Self-audit, not an independent audit.** v1.6.0: XM1S sender auth (+5), replay protection (+2), CSP hardening (+1), pinned Actions (+2), SBOM + reproducible check (+2), Scorecard (+1). 47/48 checks pass, 1 planned (forward secrecy prekeys). Caps: no audit (75), unsigned releases (65), claims with evidence (60). |
 | 2026-10-31 | f2770b2b91baaef0113da8014361c053face69e1 | **45 / 100** | AI review (Nemotron 3 Ultra) | **AI review, not an audit.** Baseline: no audit (cap 75), v1 lacks sender auth/forward secrecy/replay; unsigned releases; CSP gaps; test count drift (69 vs 72 claimed). |
 
 ---

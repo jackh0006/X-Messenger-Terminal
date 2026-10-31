@@ -103,11 +103,16 @@
     }
   }
 
-  async function decryptText(payload, phrase) {
+  async function decryptText(payload, phrase, vaultPhrase) {
     if (typeof payload !== 'string' || typeof phrase !== 'string') throw new TypeError('Payload and phrase must be strings.');
     if (!payload.startsWith('XM1.')) throw new Error('This is not an X Messenger transfer.');
     if (payload.length > MAX_PAYLOAD_CHARS + 4) throw new Error('Unsupported transfer format.');
     if (phrase.length === 0) throw new Error('A shared phrase is required.');
+    // Optional replay protection (requires vaultPhrase and localStorage)
+    if (vaultPhrase && typeof replayCheck === 'function') {
+      const seen = await replayCheck(payload, vaultPhrase);
+      if (seen) throw new Error('This message was already opened — replay detected. Do not trust it.');
+    }
     let data;
     try {
       data = JSON.parse(decoder.decode(fromB64url(payload.slice(4))));
@@ -125,7 +130,12 @@
       const aad = data.v === 2 ? AAD_V2 : AAD_V1;
       const plain = new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv, additionalData: encoder.encode(aad) }, key, ciphertext));
       try {
-        return data.v === 2 ? unpadPlaintext(plain) : decoder.decode(plain);
+        const result = data.v === 2 ? unpadPlaintext(plain) : decoder.decode(plain);
+        // Mark as seen after successful decrypt
+        if (vaultPhrase && typeof replayMark === 'function') {
+          await replayMark(payload, vaultPhrase);
+        }
+        return result;
       } finally {
         plain.fill(0);
       }

@@ -16,3 +16,7 @@ npm run android:sync
 
 ## Security reports
 Email jackh109867@gmail.com privately with version, impact, repro. Do not open public issues for vulns, phrases, or real ciphertext.
+
+## Two-Person Review (Crypto Changes)
+
+Any PR touching cryptographic code (`core.js`, `core/`, `app.js` crypto calls, `server.js` TLS) requires **two approvals** from maintainers before merge. CI enforces this via branch protection.
