@@ -1,94 +1,166 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# X Messenger Terminal — Linux uninstaller
-# Removes .deb package, portable install, desktop launcher, CLI symlinks, and user data (with confirmation).
-# Usage: ./scripts/uninstall.sh [--purge] [--dry-run]
+# uninstall.sh — Uninstall X Messenger Terminal (xc)
+# Removes binary only by default. Keys/contacts kept unless --purge with typed confirmation.
 
 set -euo pipefail
 
-PREFIX="${PREFIX:-/usr/local}"
+# Configuration
+BINARY_NAME="xc"
+INSTALL_DIR_LINUX="${HOME}/.local/bin"
+INSTALL_DIR_TERMUX="${PREFIX}/bin"
+DATA_DIR="${HOME}/.xcourier"
 PURGE=false
 DRY_RUN=false
+FORCE=false
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --purge) PURGE=true; shift ;;
-    --dry-run) DRY_RUN=true; shift ;;
-    *) echo "Unknown option: $1"; exit 2 ;;
-  esac
-done
-
-log() { echo "[$(date +%H:%M:%S)] $*"; }
-run() { if $DRY_RUN; then echo "DRY: $*"; else eval "$*"; fi; }
-
-# 1. Remove .deb package if installed
-if dpkg -l | grep -q '^ii  x-messenger '; then
-  log "Removing .deb package"
-  run "sudo dpkg -r x-messenger"
-  run "sudo dpkg -P x-messenger 2>/dev/null || true"
-fi
-
-# 2. Remove portable install files
-PORTABLE_DIRS=(
-  "$PREFIX/lib/x-messenger"
-  "$PREFIX/bin/cipherlink"
-  "$PREFIX/bin/x-messenger"
-  "$PREFIX/bin/cipherlink-gui"
-  "$PREFIX/share/applications/x-messenger.desktop"
-  "$PREFIX/share/icons/hicolor/*/apps/x-messenger.png"
-  "$PREFIX/share/icons/hicolor/*/apps/x-messenger.svg"
-  "$PREFIX/share/doc/x-messenger"
-)
-
-for p in "${PORTABLE_DIRS[@]}"; do
-  if compgen -G "$p" > /dev/null; then
-    log "Removing $p"
-    run "sudo rm -rf $p"
-  fi
-done
-
-# 3. Remove user data (requires explicit confirmation unless --purge)
-if $PURGE; then
-  CONFIRM="YES"
+# Colors (respect NO_COLOR)
+if [[ -z "${NO_COLOR:-}" ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m'
 else
-  echo ""
-  echo "=========================================="
-  echo "  REMOVE USER DATA?"
-  echo "=========================================="
-  echo "This will DELETE ALL local data:"
-  echo "  - Vault history (locked messages)"
-  echo "  - Local contacts (profiles)"
-  echo "  - Settings & preferences"
-  echo "  - Device identity (signing key)"
-  echo "  - Replay protection cache"
-  echo "  - Session messages"
-  echo ""
-  echo "Type exactly:  YES, I understand this cannot be undone"
-  read -r CONFIRM
+    RED=''; GREEN=''; YELLOW=''; BLUE=''; NC=''
 fi
 
-if [[ "$CONFIRM" == "YES, I understand this cannot be undone" ]]; then
-  log "Wiping user data..."
-  for dir in \
-    "$HOME/.local/share/x-messenger" \
-    "$HOME/.config/x-messenger" \
-    "$HOME/.cache/x-messenger" \
-    "$HOME/.xcourier" 2>/dev/null; do
-    if [[ -d "$dir" ]]; then
-      log "Removing $dir"
-      run "rm -rf \"$dir\""
+log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
+log_ok() { echo -e "${GREEN}[OK]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_err() { echo -e "${RED}[ERR]${NC} $*"; }
+
+usage() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+    --purge          Remove keys, contacts, replay cache, and all data (requires typed confirmation)
+    --dry-run        Show what would be removed without doing it
+    --force          Skip confirmation prompts (use with caution)
+    --help           Show this help
+
+By default, removes the xc binary only. Keys, contacts, and data are preserved.
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --purge) PURGE=true; shift ;;
+            --dry-run) DRY_RUN=true; shift ;;
+            --force) FORCE=true; shift ;;
+            --help) usage; exit 0 ;;
+            *) log_err "Unknown option: $1"; usage; exit 1 ;;
+        esac
+    done
+}
+
+detect_platform() {
+    if [[ -n "${TERMUX_VERSION:-}" ]] || [[ -n "${ANDROID_ROOT:-}" ]]; then
+        echo "termux"
+    else
+        echo "linux"
     fi
-  done
-  # Also remove from XDG_DATA_HOME if set
-  if [[ -n "${XDG_DATA_HOME:-}" && -d "$XDG_DATA_HOME/x-messenger" ]]; then
-    run "rm -rf \"$XDG_DATA_HOME/x-messenger\""
-  fi
-  if [[ -n "${XDG_CONFIG_HOME:-}" && -d "$XDG_CONFIG_HOME/x-messenger" ]]; then
-    run "rm -rf \"$XDG_CONFIG_HOME/x-messenger\""
-  fi
-  log "User data wiped."
-else
-  log "User data preserved (use --purge to remove)."
-fi
+}
 
-log "Uninstall complete."
+remove_binary() {
+    local platform="$1"
+    local install_dir
+
+    if [[ "$platform" == "termux" ]]; then
+        install_dir="${PREFIX}/bin"
+    else
+        install_dir="${HOME}/.local/bin"
+    fi
+
+    local binary_path="${install_dir}/${BINARY_NAME}"
+
+    if [[ -f "$binary_path" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY RUN] Would remove binary: $binary_path"
+        else
+            rm -f "$binary_path"
+            log_ok "Removed binary: $binary_path"
+        fi
+    else
+        log_info "Binary not found at $binary_path (already removed?)"
+    fi
+
+    # Remove desktop entry (Linux only)
+    if [[ "$platform" == "linux" ]]; then
+        local desktop_file="${HOME}/.local/share/applications/x-messenger.desktop"
+        if [[ -f "$desktop_file" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log_info "[DRY RUN] Would remove desktop entry: $desktop_file"
+            else
+                rm -f "$desktop_file"
+                log_ok "Removed desktop entry: $desktop_file"
+            fi
+        fi
+    fi
+}
+
+remove_data() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY RUN] Would remove data directory: $DATA_DIR"
+        return 0
+    fi
+
+    if [[ ! -d "$DATA_DIR" ]]; then
+        log_info "Data directory not found: $DATA_DIR"
+        return 0
+    fi
+
+    log_warn "About to PERMANENTLY DELETE all data in $DATA_DIR"
+    log_warn "This includes:"
+    log_warn "  - Identity keys (age + SSH)"
+    log_warn "  - Contacts and verified fingerprints"
+    log_warn "  - Prekeys (forward secrecy)"
+    log_warn "  - Replay protection cache"
+    log_warn "  - Vault (if enabled)"
+    log_warn ""
+    log_warn "On flash storage, deletion is BEST EFFORT — wear leveling may leave remnants."
+
+    if [[ "$FORCE" != "true" ]]; then
+        echo ""
+        read -rp "Type 'YES, I understand this cannot be undone' to confirm: " confirm
+        if [[ "$confirm" != "YES, I understand this cannot be undone" ]]; then
+            log_err "Confirmation failed. Aborting."
+            return 1
+        fi
+    fi
+
+    rm -rf "$DATA_DIR"
+    log_ok "Removed data directory: $DATA_DIR"
+    log_warn "Note: On flash storage, deletion is best effort — wear leveling may leave remnants."
+    return 0
+}
+
+main() {
+    parse_args "$@"
+
+    log_info "X Messenger Terminal Uninstaller"
+
+    local platform
+    platform=$(detect_platform)
+    log_info "Platform: $platform"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_warn "DRY RUN MODE — no changes will be made"
+    fi
+
+    remove_binary "$platform"
+
+    if [[ "$PURGE" == "true" ]]; then
+        remove_data
+    else
+        log_info "Keys and data preserved in $DATA_DIR"
+        log_info "Run with --purge to remove everything (requires typed confirmation)"
+    fi
+
+    log_ok "Uninstall complete!"
+}
+
+parse_args "$@"
+main "$@"

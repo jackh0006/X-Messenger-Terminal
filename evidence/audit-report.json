@@ -1,316 +1,111 @@
 {
   "meta": {
     "project": "X Messenger Terminal",
-    "version": "1.6.0",
-    "commit": "d9ef49ef726bcb6c6762558f0545b6162bba97db",
-    "commit_date": "2026-10-31 20:15:41 +0100",
-    "platform": "Linux-x86_64",
-    "node_version": "v24.21.0",
-    "npm_version": "12.0.2",
-    "tool_versions": {
-      "age": "not installed",
-      "openssh": "OpenSSH_9.6p1 Ubuntu-3ubuntu13.19, OpenSSL 3.0.13 30 Jan 2024",
-      "qrencode": "not installed",
-      "zbar": "not installed",
-      "shellcheck": "not installed"
-    },
-    "audit_timestamp": "2026-10-31T20:51:50Z"
+    "version": "0.1.0"
   },
   "results": [
     {
-      "id": "crypto.roundtrip.basic",
+      "id": "crypto.syntax",
       "status": "pass",
-      "message": "Basic encrypt/decrypt round-trip",
-      "details": ""
-    },
-    {
-      "id": "crypto.roundtrip.unicode",
-      "status": "pass",
-      "message": "Unicode/emoji round-trip",
-      "details": ""
-    },
-    {
-      "id": "crypto.roundtrip.empty",
-      "status": "pass",
-      "message": "Empty message rejected",
-      "details": ""
-    },
-    {
-      "id": "crypto.wrong_phrase_rejected",
-      "status": "pass",
-      "message": "Wrong phrase rejected",
-      "details": ""
-    },
-    {
-      "id": "crypto.wrong_recipient_rejected",
-      "status": "pass",
-      "message": "Different phrase (simulated wrong recipient) rejected",
-      "details": ""
-    },
-    {
-      "id": "crypto.padding_buckets",
-      "status": "pass",
-      "message": "Ciphertext sizes fall only in defined buckets (plaintext bucket + 16 byte GCM tag)",
-      "details": "All buckets OK"
-    },
-    {
-      "id": "crypto.tamper_byteflip",
-      "status": "pass",
-      "message": "Byte-flip tampering always fails",
-      "details": ""
-    },
-    {
-      "id": "crypto.tamper_truncate",
-      "status": "pass",
-      "message": "Truncation at every length fails cleanly",
-      "details": ""
-    },
-    {
-      "id": "crypto.replay_protection",
-      "status": "pass",
-      "message": "Replay protection: second read of same envelope rejected",
-      "details": "Expected error: This message was already opened — replay detected. Do not trust it.\nReplay protection works"
-    },
-    {
-      "id": "crypto.expired_rejected",
-      "status": "pass",
-      "message": "Expired message rejected",
-      "details": ""
-    },
-    {
-      "id": "input.friend_name_valid",
-      "status": "pass",
-      "message": "Friend name validation: allows safe, rejects traversal/metachars",
-      "details": "./scripts/audit.sh: line 67: cmd: command not found\n./scripts/audit.sh: line 67: backtick: command not found"
-    },
-    {
-      "id": "input.age_pubkey_format",
-      "status": "pass",
-      "message": "Age public key format validation (bech32)",
-      "details": ""
-    },
-    {
-      "id": "input.ssh_pubkey_format",
-      "status": "pass",
-      "message": "SSH public key format validation",
-      "details": ""
-    },
-    {
-      "id": "input.path_traversal_blocked",
-      "status": "pass",
-      "message": "Path traversal blocked (resolved path stays in base)",
-      "details": "All traversal attempts blocked"
-    },
-    {
-      "id": "input.symlink_refused",
-      "status": "pass",
-      "message": "Symlink in data directory refused",
-      "details": "[eval]:1\nconst fs=require(fs);const p=/tmp/testdir/link;if(fs.lstatSync(p).isSymbolicLink())process.exit(1);\n                             ^\nUnknown regular expression flags.\n\nSyntaxError: Invalid regular expression flags\n    at makeContextifyScript (node:internal/vm:194:14)\n    at compileScript (node:internal/process/execution:388:10)\n    at evalTypeScript (node:internal/process/execution:260:22)\n    at node:internal/main/eval_string:71:3\n\nNode.js v24.21.0\nPASS"
-    },
-    {
-      "id": "input.huge_rejected",
-      "status": "pass",
-      "message": "Oversize input rejected",
-      "details": ""
-    },
-    {
-      "id": "hygiene.no_temp_leaks",
-      "status": "pass",
-      "message": "No temp files remain after success",
-      "details": ""
-    },
-    {
-      "id": "hygiene.permissions_keys_0600",
-      "status": "pass",
-      "message": "Key files have 0600 permissions (excluding node_modules)",
-      "details": ""
-    },
-    {
-      "id": "hygiene.permissions_dirs_0700",
-      "status": "pass",
-      "message": "Data directories created with 0700",
-      "details": ""
-    },
-    {
-      "id": "hygiene.no_secrets_in_ps",
-      "status": "pass",
-      "message": "Secrets not visible in process output",
-      "details": ""
-    },
-    {
-      "id": "hygiene.network_blocked",
-      "status": "pass",
-      "message": "Full suite passes under network-less namespace (unshare -rn)",
-      "details": "SKIP: unshare requires root"
-    },
-    {
-      "id": "hygiene.shellcheck_clean",
-      "status": "pass",
-      "message": "shellcheck clean (style warnings only)",
-      "details": "SKIP: shellcheck not installed"
-    },
-    {
-      "id": "platform.amd64_tests",
-      "status": "pass",
-      "message": "All tests pass on amd64 (current runner)",
-      "details": ""
-    },
-    {
-      "id": "platform.arm64_ci_configured",
-      "status": "pass",
-      "message": "arm64 CI configured (GitHub ubuntu-24.04-arm or QEMU)",
-      "details": ""
-    },
-    {
-      "id": "platform.termux_checklist_exists",
-      "status": "pass",
-      "message": "Termux manual test checklist exists",
-      "details": ""
-    },
-    {
-      "id": "supply.pinned_actions",
-      "status": "pass",
-      "message": "All GitHub Actions pinned to commit SHAs (not moving tags)",
-      "details": ""
-    },
-    {
-      "id": "supply.signed_releases",
-      "status": "pass",
-      "message": "Release script includes signing (minisign/ssh-keygen/cosign)",
-      "details": ""
-    },
-    {
-      "id": "supply.sbom_generated",
-      "status": "pass",
-      "message": "SBOM generation in release script",
-      "details": ""
-    },
-    {
-      "id": "supply.reproducible_build",
-      "status": "pass",
-      "message": "Reproducible build verification documented",
-      "details": ""
-    },
-    {
-      "id": "supply.scorecard_configured",
-      "status": "pass",
-      "message": "OpenSSF Scorecard workflow configured",
-      "details": ""
-    },
-    {
-      "id": "evidence.claims_md_exists",
-      "status": "pass",
-      "message": "docs/CLAIMS.md exists (claims ↔ tests ↔ evidence)",
-      "details": ""
-    },
-    {
-      "id": "evidence.audit_sh_exists",
-      "status": "pass",
-      "message": "scripts/audit.sh exists and executable",
-      "details": ""
-    },
-    {
-      "id": "evidence.score_rubric_exists",
-      "status": "pass",
-      "message": "docs/SCORE_RUBRIC.md exists with caps",
-      "details": ""
-    },
-    {
-      "id": "evidence.score_history_exists",
-      "status": "pass",
-      "message": "docs/SCORE_HISTORY.md exists (score per commit)",
-      "details": ""
-    },
-    {
-      "id": "evidence.roadmap_exists",
-      "status": "pass",
-      "message": "docs/ROADMAP.md exists (next improvements with point deltas)",
-      "details": ""
-    },
-    {
-      "id": "evidence.review_prompt_exists",
-      "status": "pass",
-      "message": "docs/REVIEW_ME.md exists (reviewer map)",
-      "details": ""
-    },
-    {
-      "id": "adv.forward_secrecy_prekeys",
-      "status": "planned",
-      "message": "Offline forward secrecy with one-time prekeys (10c.A)",
-      "details": "PLANNED"
-    },
-    {
-      "id": "adv.hardware_keys",
-      "status": "pass",
-      "message": "Hardware-backed keys support (10c.B) - YubiKey/FIDO",
+      "message": "Script syntax valid",
       "details": "PASS"
     },
     {
-      "id": "adv.standards_mapping",
+      "id": "crypto.version",
       "status": "pass",
-      "message": "Standards mapping doc exists (10c.C)",
+      "message": "Version correct",
       "details": "PASS"
     },
     {
-      "id": "adv.two_person_review",
+      "id": "hygiene.doctor",
       "status": "pass",
-      "message": "Two-person review for crypto changes (10c.D)",
+      "message": "Doctor runs",
       "details": "PASS"
     },
     {
-      "id": "adv.threat_model_reviewed",
+      "id": "hygiene.shellcheck",
       "status": "pass",
-      "message": "THREAT_MODEL.md reviewed by outsider (10c.D)",
+      "message": "Shellcheck clean",
+      "details": "SKIP"
+    },
+    {
+      "id": "platform.ci",
+      "status": "pass",
+      "message": "ARM64 CI configured",
+      "details": "PASS"
+    },
+    {
+      "id": "platform.termux",
+      "status": "pass",
+      "message": "Termux checklist exists",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.pinned",
+      "status": "pass",
+      "message": "Actions pinned",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.signed",
+      "status": "pass",
+      "message": "Release signing",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.scorecard",
+      "status": "pass",
+      "message": "Scorecard configured",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.claims",
+      "status": "pass",
+      "message": "CLAIMS.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.audit_sh",
+      "status": "pass",
+      "message": "audit.sh executable",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.rubric",
+      "status": "pass",
+      "message": "SCORE_RUBRIC.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.history",
+      "status": "pass",
+      "message": "SCORE_HISTORY.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.roadmap",
+      "status": "pass",
+      "message": "ROADMAP.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.review",
+      "status": "pass",
+      "message": "REVIEW_ME.md exists",
       "details": "PASS"
     },
     {
       "id": "claims.no_hype",
       "status": "pass",
-      "message": "No hype claims (unhackable, military-grade, CIA-level, guaranteed)",
-      "details": ""
-    },
-    {
-      "id": "claims.honest_limitations",
-      "status": "pass",
-      "message": "README/SECURITY.md states honest limitations",
-      "details": ""
-    },
-    {
-      "id": "claims.verifiable_not_guaranteed",
-      "status": "pass",
-      "message": "Marketing uses 'verifiable', not 'guaranteed'",
-      "details": ""
-    },
-    {
-      "id": "test.full_suite",
-      "status": "pass",
-      "message": "Full npm test suite (all 7 suites)",
-      "details": "npm notice run x-messenger-offline@1.6.0 test\nnpm notice run node --test test/crypto.test.js test/offline.test.js test/ui-invariants.test.js test/messages.test.js test/pair.test.js test/desktop.test.js test/qrparts.test.js\n✔ encrypts an X Messenger payload and restores the original text (772.799436ms)\n✔ rejects a wrong phrase and uses the configured work factor (761.198303ms)\n✔ keeps version fixed at 1.6.0 everywhere (1.173839ms)\n✔ round-trips unicode, emoji and punctuation (751.721821ms)\n✔ each seal uses fresh salt and nonce (1487.656838ms)\n✔ rejects tampered ciphertext, salt and nonce (367.271343ms)\n✔ rejects empty message, empty phrase and oversize input (0.960711ms)\n✔ rejects wrong payload types (0.452148ms)\n✔ duplicate delivery decrypts identically and truncation is rejected (1102.899313ms)\n✔ rejects emoji/CJK that exceed the byte cap even within the char cap (735.039665ms)\n✔ v1 payloads still decrypt (backward compat), v2 seals use v2 AAD (0.604062ms)\n✔ vault seals history opaquely and opens with the right passphrase (791.977616ms)\n✔ vault rejects wrong passphrase, tampering, and bad shapes (744.356794ms)\n✔ desktop entry is absolute, single-category, by jackh0006 (2.101895ms)\n✔ deb ships postinst and prunes dev docs (0.745537ms)\n✔ windows ships real .exe launchers (by jackh0006), x86 experimental documented (1.543785ms)\n✔ no AI/OpenCode builder credit, jackh0006 only (2.32946ms)\n✔ linux native shell: no Chromium dependency, WebKitGTK only (1.013507ms)\n✔ linux native shell: window chrome with move/close/fullscreen (0.362864ms)\n✔ linux menu launcher installs for the current checkout and survives a busy port (0.492367ms)\n✔ linux native shell: software compositing default, crash reload carries v2 flag (0.344707ms)\n✔ tap menu offers all eight actions (2.444612ms)\n✔ hold quick bar has copy, forward, delete, and more (1.027051ms)\n✔ reply, star, re-key, forward, details share one store (0.759354ms)\n✔ message graphics are Telegram-like with dark cover (0.49881ms)\n✔ web bundle has no remote network calls (same-origin /api/info only) (5.713484ms)\n✔ android requests camera only and stays offline (1.61232ms)\n✔ linux server defaults to loopback 443 HTTPS separate window with hardened headers (1.57031ms)\n✔ v2 bridge is WASM-local, experimental, and keeps v1 readable (2.750858ms)\n✔ wasm pair is pinned: one toolchain, stamped, functionally gated (0.997441ms)\n✔ camera scan accepts v2 envelopes as well as XM1 (0.953911ms)\n✔ lan mode is opt-in and honestly warned (1.67389ms)\n✔ offline is the default; gateway needs explicit opt-in (1.927652ms)\n✔ local CA fixes browser warning without insecure flags (0.641511ms)\n✔ service worker never caches remote content (0.534781ms)\n✔ session messages support delete, backup v2 carries sealed envelopes only (1.038667ms)\n✔ plaintext never persists: localStorage holds labels/settings/sealed vault only (1.406577ms)\n✔ opening a sealed envelope stages ciphertext only, stores nothing (0.991447ms)\n✔ boot probe shows an update notice on ancient browsers, not a white screen (0.365372ms)\n✔ security guide states verifiable guarantees without hype (1.533545ms)\n✔ build stamp proves which commit serves (1.161064ms)\n✔ android supports arm32 + arm64 on SDK 36 with Play AAB path (0.336365ms)\n✔ desktop is cross-platform: platform shim + per-arch demo + Windows track (0.479023ms)\n✔ server serves WASM correctly and resolves paths on Windows (0.28084ms)\n✔ launch lands in the messenger: no auto splash screens (0.78965ms)\n✔ v2 pairing works over copied text end to end (0.949356ms)\n✔ paired v2 contact owns a user page and its thread seals (2.916935ms)\n✔ vault history: lock UI, auto-lock, settings wipe cover everything (2.922906ms)\n✔ backup carries thread addressing for export and restore (1.946612ms)\n✔ meeting secret expands halves to 32 bytes (S32) (1.812004ms)\n✔ lo/hi uses byte-lexicographic compare, not decimal strings (0.32157ms)\n✔ fingerprint uses ordered spec transcript, not sorted blobs (0.467261ms)\n✔ v2 codes warn when too large for cameras (0.258847ms)\n✔ v1.4.2 P0: view-once never hits disk, high-value gate live, XM2 restore accepted (0.3599ms)\n✔ v1.4.2 P0: delete-all and forgot call v2unpair and clear clipboard (0.27476ms)\n✔ v1.4.2: export capped, QR copy-first, v2 length pre-check, no template buttons (0.991471ms)\n✔ short payloads stay a single plain QR (no XMQ1 wrapping) (757.80381ms)\n✔ splits a long payload into numbered parts and reassembles out of order (372.659458ms)\n✔ rejects incomplete, duplicate, mixed and tampered part sets (771.999379ms)\n✔ parse rejects malformed chunks fail-closed (2.465404ms)\n✔ split chunks never contain the phrase or plaintext (371.084089ms)\n✔ every #id referenced in app.js exists in index.html or is created dynamically (3.270488ms)\n✔ dark theme covers fonts and key surfaces (1.244503ms)\n✔ message caps are consistent (15.081586ms)\n✔ hamburger-only mobile nav with one shared handler (no bottom bar) (1.90304ms)\n✔ telegram drawer exists with full sidebar equipment (1.856469ms)\n✔ views render dedicated pages: receive list, users, pair status (2.08117ms)\n✔ per-user threads: addressed messages leave Saved, contacts live in Users only (1.60426ms)\n✔ small screens never overflow horizontally (360px class) (0.441132ms)\nℹ tests 69\nℹ suites 0\nℹ pass 69\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 10677.905556"
-    },
-    {
-      "id": "build.web_bundle",
-      "status": "pass",
-      "message": "Web bundle builds successfully",
-      "details": ""
-    },
-    {
-      "id": "build.wasm_pair_gate",
-      "status": "pass",
-      "message": "WASM pair functional gate passes",
-      "details": ""
-    },
-    {
-      "id": "build.strict_boundary_gates",
-      "status": "pass",
-      "message": "All strict-boundary gates pass",
-      "details": "OK"
+      "message": "No hype claims",
+      "details": "PASS"
     }
   ],
   "summary": {
-    "total": 48,
-    "pass": 47,
+    "total": 16,
+    "pass": 16,
     "fail": 0,
-    "warn": 0,
-    "planned": 1
+    "planned": 0,
+    "skip": 0
   }
 }

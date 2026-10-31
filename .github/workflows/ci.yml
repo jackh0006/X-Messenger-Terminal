@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# X Messenger Terminal — CI Configuration
+# Runs all tests in network-less namespace (unshare -rn)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup dependencies (amd64)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign
+
+      - name: Setup dependencies (arm64)
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign qemu-user-static
+
+      - name: Install shfmt
+        run: |
+          curl -sSL -o /tmp/shfmt https://github.com/mvdan/sh/releases/download/v3.8.0/shfmt_v3.8.0_linux_amd64
+          chmod +x /tmp/shfmt
+          sudo mv /tmp/shfmt /usr/local/bin/shfmt
+
+      - name: Install semgrep
+        run: |
+          pipx install semgrep
+
+      - name: Verify xc script syntax
+        run: |
+          shellcheck -S style xc
+          shfmt -d xc
+
+      - name: Run tests in network-less namespace
+        run: |
+          unshare -rn ./scripts/run-tests.sh
+
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: audit-evidence-${{ matrix.os }}
+          path: evidence/
+          retention-days: 30
+
+  audit:
+    name: Full Audit
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign
+
+      - name: Run full audit
+        run: |
+          ./scripts/audit.sh
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: audit-report
+          path: evidence/
+          retention-days: 90
+
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@0c43c8d6e485b5c6b68624c94b7a2c0a7b5e4f1a
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard-results.sarif
+          category: scorecard
