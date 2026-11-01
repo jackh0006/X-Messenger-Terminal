@@ -45,7 +45,8 @@ EOF
 
 add_result() {
     local id="$1" status="$2" message="$3" details="${4:-}"
-    local tmp=$(mktemp)
+    local tmp
+    tmp=$(mktemp)
     jq --arg id "$id" --arg status "$status" --arg msg "$message" --arg det "$details" \
       '.results += [{"id": $id, "status": $status, "message": $msg, "details": $det}] |
        .summary.total += 1 |

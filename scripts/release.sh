@@ -52,7 +52,7 @@ tar -czf "$TARBALL" \
 # 5. Generate SHA256SUMS
 echo "== 5/8 Generate SHA256SUMS =="
 cd "$OUT"
-sha256sum x-messenger-$VERSION.tar.gz > SHA256SUMS.txt
+sha256sum "x-messenger-$VERSION.tar.gz" > SHA256SUMS.txt
 
 # 6. Sign with ssh-keygen
 echo "== 6/8 Sign release =="
