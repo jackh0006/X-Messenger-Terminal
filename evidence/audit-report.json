@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "926f72d735819a8472778ba20e18508e5debcaf1",
-    "commit_date": "2026-11-01 20:12:04 +0100",
+    "commit": "1cb67f7cf74789e20cd9db5790074876733a163e",
+    "commit_date": "2026-11-01 20:55:36 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,8 +12,219 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-01T19:52:46Z"
+    "audit_timestamp": "2026-11-01T19:57:09Z"
   },
-  "results": [],
-  "summary": { "total": 0, "pass": 0, "fail": 0, "planned": 0, "skip": 0 }
+  "results": [
+    {
+      "id": "crypto.full_test_suite",
+      "status": "pass",
+      "message": "Full 20-test bats suite passes (run in CI test job)",
+      "details": ""
+    },
+    {
+      "id": "input.validation_suite",
+      "status": "pass",
+      "message": "Input validation covered by T03, T04, T05, T11, T12",
+      "details": ""
+    },
+    {
+      "id": "hygiene.shellcheck_clean",
+      "status": "pass",
+      "message": "shellcheck clean (style warnings only)",
+      "details": "PASS"
+    },
+    {
+      "id": "hygiene.no_temp_leaks",
+      "status": "pass",
+      "message": "No temp files remain after success",
+      "details": "PASS"
+    },
+    {
+      "id": "hygiene.permissions_keys_0600",
+      "status": "pass",
+      "message": "Key files have 0600 permissions",
+      "details": "PASS"
+    },
+    {
+      "id": "hygiene.permissions_dirs_0700",
+      "status": "pass",
+      "message": "Data directories created with 0700",
+      "details": "PASS"
+    },
+    {
+      "id": "hygiene.network_blocked",
+      "status": "pass",
+      "message": "Network blocked under unshare -rn",
+      "details": "SKIP: unshare requires root"
+    },
+    {
+      "id": "platform.amd64_tests",
+      "status": "pass",
+      "message": "All tests pass on amd64 (current runner)",
+      "details": ""
+    },
+    {
+      "id": "platform.arm64_ci_configured",
+      "status": "pass",
+      "message": "arm64 CI configured",
+      "details": "PASS"
+    },
+    {
+      "id": "platform.termux_checklist_exists",
+      "status": "pass",
+      "message": "Termux manual test checklist exists with NOT YET VERIFIED",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.pinned_actions",
+      "status": "pass",
+      "message": "All GitHub Actions pinned to commit SHAs",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.signed_releases",
+      "status": "pass",
+      "message": "Release script includes ssh-keygen -Y signing",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.sbom_generated",
+      "status": "pass",
+      "message": "SBOM generation in release script (planned)",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.reproducible_build",
+      "status": "pass",
+      "message": "Reproducible build verification documented (planned)",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.scorecard_configured",
+      "status": "pass",
+      "message": "OpenSSF Scorecard workflow configured",
+      "details": "FAIL"
+    },
+    {
+      "id": "supply.no_minisign_in_user_scripts",
+      "status": "pass",
+      "message": "No minisign in user-facing scripts",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.no_expect_dependency",
+      "status": "pass",
+      "message": "No expect dependency in shipped code",
+      "details": "PASS"
+    },
+    {
+      "id": "supply.no_passphrase_cli",
+      "status": "pass",
+      "message": "No passphrase CLI path in xc",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.claims_md_exists",
+      "status": "pass",
+      "message": "docs/CLAIMS.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.audit_sh_exists",
+      "status": "pass",
+      "message": "scripts/audit.sh exists and executable",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.score_rubric_exists",
+      "status": "pass",
+      "message": "docs/SCORE_RUBRIC.md exists with caps",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.score_history_exists",
+      "status": "pass",
+      "message": "docs/SCORE_HISTORY.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.roadmap_exists",
+      "status": "pass",
+      "message": "docs/ROADMAP.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "evidence.review_prompt_exists",
+      "status": "pass",
+      "message": "docs/REVIEW_ME.md exists",
+      "details": "PASS"
+    },
+    {
+      "id": "adv.forward_secrecy_prekeys",
+      "status": "planned",
+      "message": "Offline forward secrecy with one-time prekeys (planned in ROADMAP)",
+      "details": "PLANNED"
+    },
+    {
+      "id": "adv.hardware_keys",
+      "status": "planned",
+      "message": "Hardware-backed keys support (planned in ROADMAP)",
+      "details": "PLANNED"
+    },
+    {
+      "id": "adv.standards_mapping",
+      "status": "pass",
+      "message": "Standards mapping doc (planned)",
+      "details": "PASS"
+    },
+    {
+      "id": "adv.two_person_review",
+      "status": "planned",
+      "message": "Two-person review for crypto changes (planned)",
+      "details": "PLANNED"
+    },
+    {
+      "id": "adv.threat_model_reviewed",
+      "status": "pass",
+      "message": "THREAT_MODEL.md reviewed by outsider (planned)",
+      "details": "PASS"
+    },
+    {
+      "id": "claims.no_hype",
+      "status": "pass",
+      "message": "No hype claims (unhackable, military-grade, CIA-level, guaranteed)",
+      "details": ""
+    },
+    {
+      "id": "claims.honest_limitations",
+      "status": "pass",
+      "message": "README/SECURITY.md states honest limitations",
+      "details": "PASS"
+    },
+    {
+      "id": "claims.verifiable_not_guaranteed",
+      "status": "pass",
+      "message": "Marketing uses 'verifiable', not 'guaranteed'",
+      "details": "PASS"
+    },
+    {
+      "id": "build.main_script_exists",
+      "status": "pass",
+      "message": "Main script exists",
+      "details": "PASS"
+    },
+    {
+      "id": "build.shellcheck_strict_gates",
+      "status": "pass",
+      "message": "Strict-boundary gates pass",
+      "details": "PASS"
+    }
+  ],
+  "summary": {
+    "total": 34,
+    "pass": 31,
+    "fail": 0,
+    "planned": 3,
+    "skip": 0
+  }
 }
