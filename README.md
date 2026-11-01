@@ -134,7 +134,7 @@ RWQ... (to be generated at first release)
 
 ## Verification
 
-> **Don't trust us — run the audit yourself.**
+> **Don't trust us — run the audit yourself. Verifiable, minimal, open, offline.**
 
 ```bash
 # Full self-audit (runs all tests, checks, fuzzing, network-less CI)

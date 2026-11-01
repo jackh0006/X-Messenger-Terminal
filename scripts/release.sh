@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 # release.sh — X Messenger Terminal release script
 # Usage: ./scripts/release.sh <version> [--publish]
-# Creates signed release with SHA256SUMS, minisign signature, SBOM, evidence bundle
+# Creates signed release with SHA256SUMS, ssh-keygen signature, SBOM, evidence bundle
 
 set -euo pipefail
 
@@ -20,7 +20,6 @@ echo "Mode: ${MODE:-local}"
 
 # 1. Version lockstep
 echo "== 1/8 Version lockstep =="
-grep -q "\"version\": \"$VERSION\"" package.json 2>/dev/null || echo "No package.json (shell script)"
 sed -i "s/^VERSION=.*/VERSION=\"$VERSION\"/" xc
 
 # 2. Tests
@@ -55,16 +54,13 @@ echo "== 5/8 Generate SHA256SUMS =="
 cd "$OUT"
 sha256sum x-messenger-$VERSION.tar.gz > SHA256SUMS.txt
 
-# 6. Sign with minisign
+# 6. Sign with ssh-keygen
 echo "== 6/8 Sign release =="
-if command -v minisign >/dev/null && [[ -n "${MINISIGN_KEY:-}" ]]; then
-    minisign -Sm SHA256SUMS.txt -k "$MINISIGN_KEY"
-    echo "Signed with minisign"
-elif command -v ssh-keygen >/dev/null && [[ -n "${SIGNING_KEY_FILE:-}" ]]; then
+if [[ -n "${SIGNING_KEY_FILE:-}" ]] && [[ -f "$SIGNING_KEY_FILE" ]]; then
     ssh-keygen -Y sign -f "$SIGNING_KEY_FILE" -n "x-messenger-release" < SHA256SUMS.txt > SHA256SUMS.txt.sig
     echo "Signed with ssh-keygen"
 else
-    echo "WARNING: No signing key configured (set MINISIGN_KEY or SIGNING_KEY_FILE)"
+    echo "WARNING: No signing key configured (set SIGNING_KEY_FILE)"
 fi
 
 # 7. Generate SBOM
@@ -86,8 +82,8 @@ cat > "$OUT/RELEASE_NOTES.md" <<EOF
 ## Verify Before Installing
 
 \`\`\`bash
-# 1. Verify minisign signature
-minisign -Vm SHA256SUMS.txt -P <pubkey-from-readme>
+# 1. Verify ssh-keygen signature
+ssh-keygen -Y verify -f /dev/stdin -n "x-messenger-release" -s SHA256SUMS.txt.sig <<< "\$SIGNING_PUBKEY" < SHA256SUMS.txt
 
 # 2. Verify checksums
 sha256sum -c SHA256SUMS.txt
@@ -109,16 +105,14 @@ ls -la "$OUT/"
 
 if [[ "$MODE" == "--publish" ]]; then
     echo "== Publishing =="
-    # Tag and push
     git tag -s "v$VERSION" -m "Release v$VERSION"
     git push origin "v$VERSION"
-    
-    # Create GitHub release
+
     gh release create "v$VERSION" \
         --title "v$VERSION" \
         --notes-file "$OUT/RELEASE_NOTES.md" \
         "$OUT"/*
-    
+
     echo "Published v$VERSION"
 fi
 

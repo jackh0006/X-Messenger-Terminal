@@ -1,7 +1,11 @@
 # TERMUX_MANUAL_TEST.md — Real-Device Test Checklist
 
-This checklist must be completed on a **real Android device (arm64)** for each release.  
-CI uses QEMU; real device behavior may differ. **Never mark passed until tested on hardware.**
+**Status: NOT YET VERIFIED — no real-device run has been recorded yet.**
+
+This checklist must be completed on a **real Android device (arm64, aarch64)**
+for each release. CI uses emulated runners; real device behavior may differ.
+**Never mark the device test passed until the owner has run it and committed
+the results below.**
 
 ---
 
@@ -12,102 +16,66 @@ CI uses QEMU; real device behavior may differ. **Never mark passed until tested 
 | Device model | |
 | Android version | |
 | Termux version | `termux-info` |
-| Architecture | `uname -m` (should be aarch64) |
+| Architecture | `uname -m` (should be aarch64 / arm64) |
 | Test date | |
 | Tester | |
 
 ---
 
-## Test Cases
+## Test Cases (matching shipped commands)
 
 ### 1. Installation
 
 - [ ] Install Termux from **F-Droid** (not Play Store)
-- [ ] Run `pkg install age openssh qrencode zbar`
-- [ ] Download release tarball + verification files
-- [ ] Run `./scripts/install.sh` — completes without error
-- [ ] `xc` available in PATH (`which xc`)
-- [ ] `xc --version` shows correct version
+- [ ] Run `pkg install bash age openssh jq util-linux` (+ `qrencode zbar` for QR id checks)
+- [ ] Download release tarball + SHA256SUMS + signature
+- [ ] Verify with `ssh-keygen -Y verify` (see release notes commands)
+- [ ] Run `./scripts/install.sh` — completes without error, no silent package installs
+- [ ] `xc` available in PATH (`which xc`), `xc --version` prints the version
 
 ### 2. Core Functionality
 
-- [ ] `xc init` — creates identity, prompts for passphrase (min 12 chars), stores encrypted
-- [ ] `xc id` — shows age pubkey (age1...), SSH pubkey (ssh-ed25519...), 6-word fingerprint
-- [ ] `xc id --qr` — displays QR code (scannable)
-- [ ] `xc add alice` — imports friend ID (paste/file/QR), shows fingerprint, asks for in-person confirm
-- [ ] `xc verify alice` — re-checks fingerprint, marks verified
-- [ ] `xc send alice` — types message, produces `message.courier`, optional QR frames
-- [ ] `xc read message.courier` — prompts for passphrase, decrypts, shows sender, wipes temp
-- [ ] `xc qr-send` — produces numbered QR frames for long message
-- [ ] `xc qr-read` — scans frames, reassembles, decrypts
-- [ ] Wrong passphrase → "incorrect passphrase" (no crash)
-- [ ] Tampered `.courier` → "tampered" error (no wrong output)
-- [ ] Replay same message twice → second rejected
+- [ ] `xc init` — creates identity, 4 passphrase prompts (type `QC` vh, min), keys stored encrypted at rest (no plaintext key files under the data dir)
+- [ ] `xc init` twice — refuses, points to `xc wipe`
+- [ ] `xc id` — shows age pubkey (age1...), ssh-ed25519 key, `SHA256:...` fingerprint
+- [ ] `xc add alice` — imports friend ID pasted from their `xc id`, shows fingerprint
+- [ ] `xc verify alice` — fingerprint compare in person, marks verified
+- [ ] `xc send alice` — type message + Ctrl-D on terminal, produces `message.courier`
+- [ ] `xc read message.courier` — prompts for passphrase, decrypts, prints message
+- [ ] Wrong passphrase → "Incorrect passphrase" (no crash)
+- [ ] Second `xc read` of the same message → "Replay detected"
+- [ ] `xc send unverified` — refuses until contact is verified
+- [ ] `--expires` in the past → "Message expired" on read
 
-### 3. Vault & Prekeys
+### 3. Hygiene & Security
 
-- [ ] `xc init` with vault passphrase — encrypts identity keys
-- [ ] `xc lock` — locks vault, wipes keys from memory
-- [ ] `xc unlock` — prompts passphrase, restores keys
-- [ ] `xc prekeys 50` — generates 50 one-time keypairs, signed bundle
-- [ ] `xc send` with prekeys — uses one prekey, marks used
-- [ ] `xc read` with prekey — decrypts, **deletes private half immediately**
-- [ ] Exhausted prekeys → falls back to identity key with warning
+- [ ] `find ~/.xcourier -type f | xargs grep -F '<passphrase>'` finds nothing
+- [ ] `ps` during `xc send`/`xc read` — passphrase never appears
+- [ ] Data dir and files are 700/600 (inspect with `ls -la`)
+- [ ] No network calls — `netstat -tuln` while sending/reading
+- [ ] `xc doctor` — lists tools, no missing-required output
 
-### 4. Key Management
+### 4. UX
 
-- [ ] `xc rotate` — generates new identity keys, optional keep old
-- [ ] `xc wipe` — removes binary only; `--purge` removes keys/contacts with typed confirmation
-- [ ] `xc doctor` — checks tools, versions, permissions, network, history, platform
-- [ ] `xc selftest` — end-to-end test with throwaway keys passes
-
-### 5. UI & Usability
-
-- [ ] Menu: numbered choices, plain words ("friend", "secret message", "ID", "password")
-- [ ] One question per screen, safe defaults
-- [ ] Lines under 40 chars (fits small phone screen)
-- [ ] Colors with text labels (OK/WARNING/STOP), respects `NO_COLOR`
 - [ ] Errors in plain words, no stack traces or crypto internals
-- [ ] Colors work on Termux default theme
-- [ ] `read -s` hides passphrase input
-- [ ] `Ctrl+C` exits safely, cleans temp files
+- [ ] Passphrase input is not echoed by age prompts (or is masked)
+- [ ] `Ctrl+C` during `xc send`/`xc read` → no leftover scratch files
 
-### 6. Security Properties
-
-- [ ] **No network calls** — verify with `netstat -tuln` during operations
-- [ ] **Camera only** — Termux permission `CAMERA` only; no `INTERNET`
-- [ ] **FLAG_SECURE** — screenshots/recording blocked (if supported)
-- [ ] **Clipboard not used** — QR/file only
-- [ ] **Vault passphrase** — `read -s`, never in args, zeroed on lock
-- [ ] **Temp files** — in `$TMPDIR` (0700), cleaned on exit/Ctrl+C
-- [ ] **Vault passphrase zeroed** on background/lock
-- [ ] **Replay cache** — works when vault unlocked
-
-### 7. QR Camera Flow
-
-- [ ] `xc qr-send` produces valid QR codes (scannable)
-- [ ] `xc qr-read` opens camera, scans, decodes
-- [ ] Multi-frame QR: scans out of order, reassembles correctly
-- [ ] Damaged QR → clear error, no crash
-- [ ] Camera permission prompted and works
-
-### 8. Edge Cases
+### 5. Edge Cases
 
 - [ ] Empty message → rejected
-- [ ] 60 KiB message → padded to 64 KiB bucket, works
+- [ ] >64 KiB message → "Message too large" refused
 - [ ] Unicode/emoji message → round-trips correctly
-- [ ] Very long friend name (32 chars) → accepted
-- [ ] Friend name with `../`, `;`, `$()`, backticks → rejected
-- [ ] Symlink in `~/.xcourier/` → refused
-- [ ] `Ctrl+C` during `xc send` → cleans temp, exits cleanly
-- [ ] `Ctrl+C` during `xc read` → cleans temp, exits cleanly
+- [ ] Tampered `.courier` → refused ("cannot be opened with your keys"), never a crash
 
-### 9. Uninstall
+### 6. Roadmap stubs stay honest
+
+- [ ] `xc wipe|rotate|prekeys|qr-send|qr-read` all print `NOT IMPLEMENTED: <cmd>` and exit 1
+
+### 7. Uninstall
 
 - [ ] `./scripts/uninstall.sh` — removes `xc` binary only
 - [ ] Keys/contacts remain in `~/.xcourier/`
-- [ ] Re-install works, keys still usable
-- [ ] `./scripts/uninstall.sh --purge` — typed confirmation, removes everything
 - [ ] `./scripts/uninstall.sh --dry-run` — shows what would be removed
 
 ---

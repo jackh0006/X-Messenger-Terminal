@@ -1,187 +1,113 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# test_helper.bats — Common helpers for all tests
+# Shared helpers for the X Messenger Terminal test suite.
+#
+# The passphrase used in tests lives only in TEST_PASS here. It is given to
+# the pty driver as an inline (temporary) environment prefix — never as an
+# argument, never written to a file — and the driver strips it from the
+# child's environment before exec. xc itself never sees a passphrase other
+# than through the terminal it prompts on.
 
-# Load the xc script for testing
-XC_SCRIPT="${BATS_TEST_DIRNAME}/../xc"
+REPO_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+XC="$REPO_DIR/xc"
+HELPERS="$REPO_DIR/tests/helpers"
+WORK_DIR="${XC_TEST_WORK:-/tmp/xc-bats}"
+DRIVER_TIMEOUT="${XC_TEST_TIMEOUT:-120}"
 
-# Helper: Run xc with a temporary data dir
-run_xc() {
-    local data_dir=$(mktemp -d -t xc_test_XXXXXX)
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" "$@"
-    local status=$?
-    rm -rf "$data_dir"
-    return $status
+mkdir -p "$WORK_DIR"
+
+TEST_PASS="correct-horse-battery-22"
+
+# Per-test scratch state; each test creates its own dirs.
+A_DIR=""; B_DIR=""; C_DIR=""; SCRATCH=""
+TTY_STATUS=""; TTY_OUTPUT=""
+STDIN_FILE=""
+
+fail_with_transcript() {
+    echo "wanted: $1" >&2
+    echo "== pty stderr (full) ==" >&2
+    cat "$WORK_DIR/pty.err" 2>/dev/null | tr -d '\r' >&2 || true
+    echo "== pty transcript (full) ==" >&2
+    printf '%s\n' "$TTY_OUTPUT" >&2 || true
+    return 1
 }
 
-# Helper: Create a throwaway identity
-make_identity() {
-    local data_dir=$(mktemp -d -t xc_id_XXXXXX)
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" init --passphrase "testpass123" --no-interactive
-    local status=$?
-    if [[ $status -eq 0 ]]; then
-        # Output the data dir so caller can use it
-        echo "$data_dir"
-    fi
-    return $status
+pty_cmd() {
+    local dir="$1"; shift
+    # STDIN_FILE is consumed ONCE per call, then cleared: a leftover message
+    # must never be typed into a later command's passphrase prompt.
+    local sin="$STDIN_FILE"
+    STDIN_FILE=""
+    # Fresh scratch dir EVERY call: the previous implementation reused
+    # SCRATCH across calls via ${SCRATCH:-...}, which caused stale output
+    # files (e.g., a successful 60KB send's message.courier) to persist
+    # and falsely appear as "oversize was sealed" when a later send died.
+    SCRATCH=$(mktemp -d "$WORK_DIR/run.XXXXXX")
+    local trans st=0
+    trans=$(mktemp "$WORK_DIR/trans.XXXXXX")
+    : > "$trans"
+    local args=()
+    [[ -n "$sin" ]] && args+=(--stdin-text "$sin" --stdin-first)
+    # `|| st=$?` is load-bearing: bats runs with errexit, and a nonzero
+    # driver status here must land in TTY_STATUS (asserted later on) rather
+    # than abort this helper before the asserts can record a transcript.
+    XC_TEST_PASS="$TEST_PASS" python3 "$HELPERS/pty_drive.py" \
+        --cwd "$SCRATCH" --timeout "$DRIVER_TIMEOUT" \
+        ${args[@]+"${args[@]}"} --transcript "$trans" \
+        -- XCOURIER_DATA_DIR="$dir" "$XC" "$@" \
+        </dev/null 2>"$WORK_DIR/pty.err" || st=$?
+    TTY_STATUS=$st
+    TTY_OUTPUT=$(tr -d '\r' < "$trans")
+    rm -f "$trans"
+    return 0
 }
 
-# Helper: Get public ID from an identity dir
-get_public_id() {
-    local data_dir="$1"
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" id
+# Asserts for pty-driven runs. Per spec: any status above 128 means the
+# child was killed by a signal and is treated as a failure, never expected.
+assert_status_zero() {
+    [[ "$TTY_STATUS" -eq 0 ]] || { fail_with_transcript "exit status 0, got $TTY_STATUS"; return 1; }
 }
 
-# Helper: Send a message
-send_message() {
-    local data_dir="$1"
-    local recipient="$2"
-    local message="$3"
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" send "$recipient" <<< "$message"
+assert_no_crash() {
+    [[ "$TTY_STATUS" -le 128 ]] || { fail_with_transcript "no signal crash allowed, got status $TTY_STATUS"; return 1; }
 }
 
-# Helper: Read a message
-read_message() {
-    local data_dir="$1"
-    local file="$2"
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" read "$file"
+assert_status_nonzero() {
+    [[ "$TTY_STATUS" -ne 0 ]] || { fail_with_transcript "nonzero exit status, got 0"; return 1; }
 }
 
-# Helper: Send and receive round trip
-xc_send_receive() {
-    local message="$1"
-    local alice_dir=$(make_identity)
-    local bob_dir=$(make_identity)
-
-    local alice_id=$(XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" id)
-    local bob_id=$(XCOURIER_DATA_DIR="$bob_dir" "$XC_SCRIPT" id)
-
-    # Alice adds Bob
-    XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" add bob <<< "$bob_id" || return 1
-
-    # Bob adds Alice
-    XCOURIER_DATA_DIR="$bob_dir" "$XC_SCRIPT" add alice <<< "$alice_id" || return 1
-
-    # Alice sends to Bob
-    local courier_file=$(XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" send bob <<< "$message")
-
-    # Bob reads
-    XCOURIER_DATA_DIR="$bob_dir" "$XC_SCRIPT" read "$courier_file"
+assert_tty_contains() {
+    [[ "$TTY_OUTPUT" == *"$1"* ]] || { fail_with_transcript "output contains [$1]"; return 1; }
 }
 
-# Test helper: Wrong recipient
-xc_send_receive_wrong_recipient() {
-    local alice_dir=$(make_identity)
-    local bob_dir=$(make_identity)
-    local charlie_dir=$(make_identity)
-
-    local alice_id=$(XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" id)
-    local bob_id=$(XCOURIER_DATA_DIR="$bob_dir" "$XC_SCRIPT" id)
-    local charlie_id=$(XCOURIER_DATA_DIR="$charlie_dir" "$XC_SCRIPT" id)
-
-    XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" add bob <<< "$bob_id"
-    XCOURIER_DATA_DIR="$bob_dir" "$XC_SCRIPT" add alice <<< "$alice_id"
-
-    local courier_file=$(XCOURIER_DATA_DIR="$alice_dir" "$XC_SCRIPT" send bob <<< "test message")
-
-    # Charlie tries to read
-    XCOURIER_DATA_DIR="$charlie_dir" "$XC_SCRIPT" read "$courier_file"
+assert_tty_not_contains() {
+    [[ "$TTY_OUTPUT" != *"$1"* ]] || { fail_with_transcript "output must NOT contain [$1]"; return 1; }
 }
 
-# Test helper: Wrong password
-xc_wrong_password() {
-    local data_dir=$(mktemp -d -t xc_id_XXXXXX)
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" init --passphrase "correctpass123" --no-interactive
-    XCOURIER_DATA_DIR="$data_dir" "$XC_SCRIPT" init --passphrase "wrongpass123" --no-interactive
+new_dirs() {
+    A_DIR=$(mktemp -d "$WORK_DIR/alic.XXXXXX")
+    B_DIR=$(mktemp -d "$WORK_DIR/bob.XXXXXX")
+    C_DIR=$(mktemp -d "$WORK_DIR/chal.XXXXXX")
+    SCRATCH=$(mktemp -d "$WORK_DIR/run.XXXXXX")
 }
 
-# Test helper: Padding buckets
-xc_check_padding_buckets() {
-    # This would check that ciphertext sizes only fall in 1/4/16/64 KiB buckets
-    # Implementation depends on the actual xc script
-    true
+# Builds alice + bob, mutually added and verified. SLOW-ish (two identities).
+fresh_pair() {
+    new_dirs
+    pty_cmd "$A_DIR" init
+    [[ "$TTY_STATUS" -eq 0 ]] || { echo "alice init failed"; return 1; }
+    pty_cmd "$B_DIR" init
+    [[ "$TTY_STATUS" -eq 0 ]] || { echo "bob init failed"; return 1; }
+    pty_cmd "$A_DIR" id && A_ID="$TTY_OUTPUT"
+    pty_cmd "$B_DIR" id && B_ID="$TTY_OUTPUT"
+    XCOURIER_DATA_DIR="$A_DIR" "$XC" add bob <<< "$B_ID"
+    XCOURIER_DATA_DIR="$A_DIR" "$XC" verify bob <<< "y"
+    XCOURIER_DATA_DIR="$B_DIR" "$XC" add alice <<< "$A_ID"
+    XCOURIER_DATA_DIR="$B_DIR" "$XC" verify alice <<< "y"
 }
 
-# Test helper: Tamper byteflip
-xc_tamper_byteflip() {
-    # Flip each byte of a valid .courier file and verify decryption fails
-    true
-}
-
-# Test helper: Tamper truncate
-xc_tamper_truncate() {
-    # Truncate at every length and verify decryption fails cleanly
-    true
-}
-
-# Test helper: Tamper resign
-xc_tamper_resign() {
-    # Re-sign with different key and verify "not from your friend" error
-    true
-}
-
-# Test helper: Tamper replay
-xc_tamper_replay() {
-    # Read same message twice, second should be rejected
-    true
-}
-
-# Test helper: Tamper expiry/wrong recipient
-xc_tamper_expiry_wrong_recipient() {
-    # Test expired message and wrong recipient rejection
-    true
-}
-
-# Test helper: Hygiene temp files
-xc_hygiene_temp_files() {
-    # Check no temp files remain after success/failure/Ctrl+C
-    true
-}
-
-# Test helper: Hygiene permissions
-xc_hygiene_permissions() {
-    # Check permissions of created files/dirs
-    true
-}
-
-# Test helper: Hygiene secrets
-xc_hygiene_secrets() {
-    # Check no secrets in ps/env
-    true
-}
-
-# Test helper: Hygiene network
-xc_hygiene_network() {
-    # Verify network is blocked (canary test)
-    true
-}
-
-# Test helper: Platform amd64
-xc_platform_amd64() {
-    # Run on amd64 CI
-    true
-}
-
-# Test helper: Platform arm64
-xc_platform_arm64() {
-    # Run on arm64 CI
-    true
-}
-
-# Test helper: Platform termux checklist
-xc_platform_termux_checklist() {
-    # Check TERMUX_MANUAL_TEST.md exists
-    [[ -f "${BATS_TEST_DIRNAME}/../docs/TERMUX_MANUAL_TEST.md" ]]
-}
-
-# Test helper: Fuzzing
-xc_fuzzing() {
-    # Run AFL++/radamsa on parsers
-    true
-}
-
-# Cleanup helper
-teardown() {
-    # Clean up any temp dirs created during tests
-    true
+# -- counts as crash failure if the driver reports >128; zero for success
+# sanity: driver exits 124 on its own timeout — treat as failure too.
+assert_driver_alive() {
+    [[ "$TTY_STATUS" -ne 124 ]] || { fail_with_transcript "driver timeout — child never finished"; return 1; }
 }

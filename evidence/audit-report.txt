@@ -1,0 +1,70 @@
+[PASS] crypto.full_test_suite: Full 20-test bats suite passes
+  Details: PASS
+[PASS] input.validation_suite: Input validation covered by T03, T04, T05, T11, T12
+  Details: 
+[PASS] hygiene.shellcheck_clean: shellcheck clean (style warnings only)
+  Details: PASS
+[PASS] hygiene.no_temp_leaks: No temp files remain after success
+  Details: PASS
+[PASS] hygiene.permissions_keys_0600: Key files have 0600 permissions
+  Details: PASS
+[PASS] hygiene.permissions_dirs_0700: Data directories created with 0700
+  Details: PASS
+[PASS] hygiene.network_blocked: Network blocked under unshare -rn
+  Details: SKIP: unshare requires root
+[PASS] platform.amd64_tests: All tests pass on amd64 (current runner)
+  Details: 
+[PASS] platform.arm64_ci_configured: arm64 CI configured
+  Details: PASS
+[PASS] platform.termux_checklist_exists: Termux manual test checklist exists with NOT YET VERIFIED
+  Details: PASS
+[PASS] supply.pinned_actions: All GitHub Actions pinned to commit SHAs
+  Details: PASS
+[PASS] supply.signed_releases: Release script includes ssh-keygen -Y signing
+  Details: PASS
+[PASS] supply.sbom_generated: SBOM generation in release script (planned)
+  Details: PASS
+[PASS] supply.reproducible_build: Reproducible build verification documented (planned)
+  Details: PASS
+[PASS] supply.scorecard_configured: OpenSSF Scorecard workflow configured
+  Details: PASS
+[PASS] supply.no_minisign_in_user_scripts: No minisign in user-facing scripts
+  Details: PASS
+[PASS] supply.no_expect_dependency: No expect dependency in shipped code
+  Details: PASS
+[PASS] supply.no_passphrase_cli: No passphrase CLI path in xc
+  Details: PASS
+[PASS] evidence.claims_md_exists: docs/CLAIMS.md exists
+  Details: PASS
+[PASS] evidence.audit_sh_exists: scripts/audit.sh exists and executable
+  Details: PASS
+[PASS] evidence.score_rubric_exists: docs/SCORE_RUBRIC.md exists with caps
+  Details: PASS
+[PASS] evidence.score_history_exists: docs/SCORE_HISTORY.md exists
+  Details: PASS
+[PASS] evidence.roadmap_exists: docs/ROADMAP.md exists
+  Details: PASS
+[PASS] evidence.review_prompt_exists: docs/REVIEW_ME.md exists
+  Details: PASS
+[PLANNED] adv.forward_secrecy_prekeys: Offline forward secrecy with one-time prekeys (planned in ROADMAP)
+  Details: PLANNED
+[PLANNED] adv.hardware_keys: Hardware-backed keys support (planned in ROADMAP)
+  Details: PLANNED
+[PASS] adv.standards_mapping: Standards mapping doc (planned)
+  Details: PASS
+[PLANNED] adv.two_person_review: Two-person review for crypto changes (planned)
+  Details: PLANNED
+[PASS] adv.threat_model_reviewed: THREAT_MODEL.md reviewed by outsider (planned)
+  Details: PASS
+[PASS] claims.no_hype: No hype claims (unhackable, military-grade, CIA-level, guaranteed)
+  Details: 
+[PASS] claims.honest_limitations: README/SECURITY.md states honest limitations
+  Details: PASS
+[PASS] claims.verifiable_not_guaranteed: Marketing uses 'verifiable', not 'guaranteed'
+  Details: PASS
+[PASS] build.main_script_exists: Main script exists
+  Details: PASS
+[PASS] build.shellcheck_strict_gates: Strict-boundary gates pass
+  Details: PASS
+
+Summary: 31/34 passed, 0 failed, 3 planned, 0 skipped

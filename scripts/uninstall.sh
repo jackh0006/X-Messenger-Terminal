@@ -7,8 +7,6 @@ set -euo pipefail
 
 # Configuration
 BINARY_NAME="xc"
-INSTALL_DIR_LINUX="${HOME}/.local/bin"
-INSTALL_DIR_TERMUX="${PREFIX}/bin"
 DATA_DIR="${HOME}/.xcourier"
 PURGE=false
 DRY_RUN=false

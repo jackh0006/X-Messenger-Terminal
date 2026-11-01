@@ -103,7 +103,7 @@ This checklist helps an outside reviewer verify the security claims of X Messeng
 ## Releases
 
 - [ ] Signed tags, pinned Actions (commit SHAs), reproducible tarball
-- [ ] SHA256SUMS, detached signature (minisign), SBOM, evidence bundle
+- [ ] SHA256SUMS, detached signature (ssh-keygen -Y verify), SBOM, evidence bundle
 - [ ] Public signing key + fingerprint in README and second channel
 - [ ] Rebuild instructions to compare hashes
 - [ ] Topics: offline, age, termux, encryption, cli

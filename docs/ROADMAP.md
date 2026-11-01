@@ -55,7 +55,7 @@ Each item tagged with rubric criterion and expected point delta.
 | Item | Criterion | Δ Points | Effort |
 |------|-----------|----------|--------|
 | Pinned GitHub Actions (full commit SHAs) | Supply chain | +2 | Medium |
-| Signed releases (minisign), SHA256SUMS.sig, signed tags | Supply chain | +3 | High |
+| Signed releases (ssh-keygen -Y verify), SHA256SUMS.sig, signed tags | Supply chain | +3 | High |
 | SBOM (CycloneDX), reproducible tarball, rebuild script | Supply chain | +3 | High |
 | SLSA provenance via GitHub attestations | Supply chain | +2 | High |
 | Scorecard ≥ 8, Best Practices badge | Supply chain | +2 | Medium |

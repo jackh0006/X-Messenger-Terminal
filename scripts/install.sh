@@ -5,29 +5,21 @@
 
 set -euo pipefail
 
-# Configuration
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$REPO_ROOT/VERSION"
-BINARY_NAME="xc"
 INSTALL_DIR_LINUX="${HOME}/.local/bin"
 INSTALL_DIR_TERMUX="${PREFIX}/bin"
-MINISIGN_PUBKEY=""  # Set at release time
+SIGNING_PUBKEY=""
 SHA256SUMS_FILE="SHA256SUMS"
 SIGNATURE_FILE="SHA256SUMS.sig"
 DRY_RUN=false
 SKIP_VERIFY=false
 PREFIX_OVERRIDE=""
 
-# Colors (respect NO_COLOR)
 if [[ -z "${NO_COLOR:-}" ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-else
-    RED=''; GREEN=''; YELLOW=''; BLUE=''; NC=''
-fi
+    RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'; NC='\033[0m'
+else RED=''; GREEN=''; YELLOW=''; BLUE=''; NC=''; fi
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 log_ok() { echo -e "${GREEN}[OK]${NC} $*"; }
@@ -41,7 +33,7 @@ Usage: $0 [OPTIONS]
 Options:
     --dry-run          Show what would be done without doing it
     --skip-verify      Skip SHA256SUMS + signature verification (NOT RECOMMENDED)
-    --prefix DIR       Installation directory (default: ~/.local/bin on Linux, \$PREFIX/bin on Termux)
+    --prefix DIR       Installation directory (default: ~/.local/bin on Linux, $PREFIX/bin on Termux)
     --help             Show this help
 
 EOF
@@ -70,7 +62,7 @@ detect_platform() {
 check_dependencies() {
     local platform="$1"
     local missing=()
-    local deps=("age" "ssh-keygen" "qrencode" "zbarimg" "minisign" "sha256sum")
+    local deps=("age" "ssh-keygen" "qrencode" "zbarimg" "sha256sum")
 
     if [[ "$platform" == "linux" ]]; then
         deps+=("bash")
@@ -101,9 +93,9 @@ verify_signature() {
         return 0
     fi
 
-    if [[ -z "$MINISIGN_PUBKEY" ]]; then
-        log_err "MINISIGN_PUBKEY not set in script — cannot verify signature"
-        log_info "Set MINISIGN_PUBKEY in install.sh or use --skip-verify (NOT RECOMMENDED)"
+    if [[ -z "$SIGNING_PUBKEY" ]]; then
+        log_err "SIGNING_PUBKEY not set in script — cannot verify signature"
+        log_info "Set SIGNING_PUBKEY in install.sh or use --skip-verify (NOT RECOMMENDED)"
         return 1
     fi
 
@@ -117,13 +109,18 @@ verify_signature() {
         return 1
     fi
 
-    log_info "Verifying minisign signature on $SHA256SUMS_FILE..."
-    if minisign -Vm "$SHA256SUMS_FILE" -P "$MINISIGN_PUBKEY" 2>/dev/null; then
+    log_info "Verifying ssh-keygen signature on $SHA256SUMS_FILE..."
+    local signers_file
+    signers_file=$(mktemp)
+    printf '* %s\n' "$SIGNING_PUBKEY" > "$signers_file"
+    if ssh-keygen -Y verify -f "$signers_file" -n "x-messenger-release" -s "$SIGNATURE_FILE" < "$SHA256SUMS_FILE" 2>/dev/null; then
         log_ok "Signature verified"
     else
         log_err "Signature verification FAILED"
+        rm -f "$signers_file"
         return 1
     fi
+    rm -f "$signers_file"
 
     log_info "Verifying checksums..."
     if sha256sum -c "$SHA256SUMS_FILE" 2>&1 | grep -q "OK$"; then
@@ -165,7 +162,6 @@ install_binary() {
     chmod 700 "$install_dir/xc"
     log_ok "Installed xc to $install_dir/xc"
 
-    # Ensure install dir is in PATH (Linux only)
     if [[ "$platform" == "linux" ]]; then
         local shell_rc=""
         if [[ -n "${BASH_VERSION:-}" ]]; then
@@ -179,11 +175,10 @@ install_binary() {
         fi
     fi
 
-    # Create data directory with correct permissions
     local data_dir="$HOME/.xcourier"
     mkdir -p "$data_dir"/{identity,contacts,prekeys,replay,vault}
     chmod 700 "$data_dir"
-    chmod 700 "$data_dir"/*
+    chmod 700 "$data_dir"/* 2>/dev/null || true
     log_ok "Created data directory: $data_dir (mode 0700)"
 
     return 0
@@ -207,5 +202,4 @@ main() {
     log_info "Run 'xc selftest' to verify, then 'xc init' to create your identity."
 }
 
-parse_args "$@"
 main "$@"

@@ -31,13 +31,13 @@ jobs:
         if: runner.os == 'Linux' && runner.arch == 'X64'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt
 
       - name: Setup dependencies (arm64)
         if: runner.os == 'Linux' && runner.arch == 'ARM64'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign qemu-user-static
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt qemu-user-static
 
       - name: Install shfmt
         run: |
@@ -76,7 +76,7 @@ jobs:
       - name: Setup dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt minisign
+          sudo apt-get install -y -qq age openssh-client qrencode zbar bats shellcheck shfmt
 
       - name: Run full audit
         run: |
@@ -104,7 +104,7 @@ jobs:
           publish_results: true
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@f0489abddd4e5e9dff53ed28a45b1d6f88978a1b
         with:
           sarif_file: scorecard-results.sarif
           category: scorecard

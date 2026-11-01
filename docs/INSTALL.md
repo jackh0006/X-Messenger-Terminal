@@ -19,13 +19,13 @@ From the [releases page](https://github.com/jackh0006/X-Messenger-Terminal/relea
 
 - `x-messenger-<version>.tar.gz` — source + prebuilt `xc` script
 - `SHA256SUMS` — checksums
-- `SHA256SUMS.sig` — minisign signature
+- `SHA256SUMS.sig` — ssh-keygen -Y verify signature
 - `SBOM.cdx.json` — CycloneDX SBOM
 - `evidence/audit-report.json` — self-audit results
 
 ### 2. Verify Minisign Signature
 
-The minisign public key is in the README and below:
+The ssh-keygen -Y verify public key is in the README and below:
 
 ```
 RWQ... (to be generated at first release)
@@ -33,7 +33,7 @@ RWQ... (to be generated at first release)
 
 ```bash
 # Verify SHA256SUMS signature
-minisign -Vm SHA256SUMS -P <pubkey-from-readme>
+ssh-keygen -Y verify -f /dev/stdin -n "x-messenger-release" -s SHA256SUMS.txt.sig <<< "$SIGNING_PUBKEY" < SHA256SUMS.txt
 ```
 
 ### 3. Verify Checksums
@@ -83,7 +83,7 @@ xc doctor
 1. **Detects platform** (Linux amd64 / Termux arm64)
 2. **Checks dependencies** — prints exact `apt`/`pkg` command if missing
 3. **Verifies SHA256SUMS** against downloaded tarball
-4. **Verifies minisign signature** on SHA256SUMS
+4. **Verifies ssh-keygen -Y verify signature** on SHA256SUMS
 5. **Installs `xc`** to `~/.local/bin` (Linux) or `$PREFIX/bin` (Termux)
 6. **Sets umask 077** for data directories
 7. **Creates desktop entry** (Linux) / app shortcut (Termux:API if available)
@@ -188,7 +188,7 @@ xc --version
 | `age: command not found` | Install per platform table above |
 | `qrencode: not found` | `apt install qrencode` / `pkg install qrencode` |
 | `zbarimg: not found` | `apt install zbar` / `pkg install zbar` |
-| Signature verification fails | Ensure minisign public key matches README; re-download files |
+| Signature verification fails | Ensure ssh-keygen -Y verify public key matches README; re-download files |
 | `xc: permission denied` | `chmod 700 ~/.local/bin/xc` |
 | `~/.../xc` not in PATH | Add `export PATH="$HOME/.local/bin:$PATH"` to shell RC |
 

@@ -20,7 +20,7 @@ This document tracks the project's OpenSSF Scorecard results and Best Practices 
 | Packaging | 5 | Release tarball + signed | |
 | Pinned-Dependencies | 5 | Pinned Actions (commit SHAs) | |
 | SAST | 5 | shellcheck + semgrep in CI | |
-| Signed-Releases | 10 | minisign + SHA256SUMS.sig | |
+| Signed-Releases | 10 | ssh-keygen -Y verify + SHA256SUMS.sig | |
 | Token-Permissions | 5 | Minimal permissions in workflows | |
 | Vulnerabilities | 5 | No known vulns in deps | |
 
