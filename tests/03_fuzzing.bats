@@ -20,7 +20,6 @@ if random.random() < 0.3:
     data = b'X-COURIER/1\n' + data     # valid header, garbage body
 open(sys.argv[1], 'wb').write(data)
 PY
-        # Use run to capture exit status; non-zero is expected for garbage.
         run env XCOURIER_DATA_DIR="$B_DIR" "$XC" read "$WORK_DIR/fz_$i" >/dev/null 2>&1
         local st=$status
         if [[ $st -ge 129 ]]; then
