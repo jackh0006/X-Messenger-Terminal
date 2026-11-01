@@ -1,6 +1,6 @@
 # Score Rubric — X Messenger Terminal
 
-Based on the project's own rubric (section 10 of spec) with caps enforced.
+Based on the project's own rubric with caps enforced.
 
 | Criterion | Weight | How to Score | Cap if Missing |
 |-----------|--------|--------------|----------------|
@@ -27,22 +27,22 @@ raw_score = sum(criterion_score)
 final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 ```
 
-## Current Assessment (Stage 0)
+## Current Assessment (Stage 1.6)
 
-| Criterion | Score | Evidence |
-|-----------|-------|----------|
-| Standard crypto | 0 | Not implemented yet |
-| Independent audit | 0 | None |
-| Forward secrecy | 0 | Not implemented |
-| Metadata minimization | 8 | No servers/accounts by design |
-| Sender auth + replay | 0 | Not implemented |
-| Endpoint hardening | 2 | Planned FLAG_SECURE, encrypted vault |
-| Supply chain | 2 | Planned pinned Actions, signed releases |
-| Ease of use | 3 | Planned simple menu |
-| **Raw total** | **15** | |
-| **Cap: no audit (75)** | **15** | |
-| **Cap: unsigned releases (65)** | **15** | |
-| **Cap: claims without evidence (60)** | **15** | |
-| **Final score** | **15 / 100** | |
+| Criterion | Score | Evidence Reference |
+|-----------|-------|-------------------|
+| Standard crypto | **20** | `tests/01_correctness.bats` T01–T05, `tests/02_tamper.bats` T06–T10; `xc` uses `age` (X25519+ChaCha20-Poly1305) + OpenSSH Ed25519 (`ssh-keygen -Y sign/verify`) |
+| Independent audit | **0** | No audit; `scripts/audit.sh` is self-audit only |
+| Forward secrecy | **0** | Not implemented; `xc prekeys`/`rotate`/`wipe`/`qr-send`/`qr-read` are stubs (`NOT IMPLEMENTED`) |
+| Metadata minimization | **10** | No servers/accounts, offline by design; `tests/04_hygiene.bats` T16 (network blocked under `unshare -rn`) |
+| Sender auth + replay | **10** | Ed25519 sign-then-encrypt + replay cache; `tests/02_tamper.bats` T08 (forged sig), T09 (replay) |
+| Endpoint hardening | **5** | Vault encryption, 0700/0600 perms; `tests/04_hygiene.bats` T13–T15 |
+| Supply chain & reproducibility | **5** | Pinned Actions (`tests/06_supply.bats` T20); `scripts/release.sh` has `ssh-keygen -Y sign` but **no signed release exists yet**; no SBOM/reproducible build verification |
+| Ease of use | **5** | Menu-driven, plain words, <40 chars; `xc` shows numbered menu |
 
-*Stage 0: Repository structure only. Score will rise as stages complete.*
+| **Raw total** | **55** | |
+| **Cap: no audit (75)** | 55 | |
+| **Cap: unsigned releases (65)** | 55 | No signed release published |
+| **Cap: claims without evidence (60)** | 55 | CLAIMS.md has 25 claims with test+evidence mapping |
+
+| **Final score** | **55 / 100** | |

@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "1cb67f7cf74789e20cd9db5790074876733a163e",
-    "commit_date": "2026-11-01 20:55:36 +0100",
+    "commit": "f49395015e00a0c3a1347d23b6ac1a902446969b",
+    "commit_date": "2026-11-01 21:04:59 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,7 +12,7 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-01T19:57:09Z"
+    "audit_timestamp": "2026-11-01T21:12:14Z"
   },
   "results": [
     {
@@ -114,7 +114,7 @@
     {
       "id": "supply.no_expect_dependency",
       "status": "pass",
-      "message": "No expect dependency in shipped code",
+      "message": "No expect dependency in shipped code (excludes lib/wordlist.txt)",
       "details": "PASS"
     },
     {

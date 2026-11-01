@@ -30,7 +30,7 @@
   Details: FAIL
 [PASS] supply.no_minisign_in_user_scripts: No minisign in user-facing scripts
   Details: PASS
-[PASS] supply.no_expect_dependency: No expect dependency in shipped code
+[PASS] supply.no_expect_dependency: No expect dependency in shipped code (excludes lib/wordlist.txt)
   Details: PASS
 [PASS] supply.no_passphrase_cli: No passphrase CLI path in xc
   Details: PASS

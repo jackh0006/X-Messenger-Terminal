@@ -189,8 +189,8 @@ run_test "supply.no_minisign_in_user_scripts" \
     10
 
 run_test "supply.no_expect_dependency" \
-    "! head -n 132 \"$REPO_ROOT/xc\" | grep -qE '\\bexpect\\b' && ! grep -rnE '\\bexpect\\b' \"$REPO_ROOT/scripts/install.sh\" \"$REPO_ROOT/scripts/uninstall.sh\" 2>/dev/null | grep -v '^#' | grep -q 'expect' && echo PASS || echo FAIL" \
-    "No expect dependency in shipped code" \
+    "! (grep -rnE '\\bexpect\\b' \"$REPO_ROOT/xc\" \"$REPO_ROOT/scripts/install.sh\" \"$REPO_ROOT/scripts/uninstall.sh\" 2>/dev/null | grep -v '^#' | grep -v 'lib/wordlist.txt' | grep -q 'expect') && echo PASS || echo FAIL" \
+    "No expect dependency in shipped code (excludes lib/wordlist.txt)" \
     10
 
 run_test "supply.no_passphrase_cli" \
