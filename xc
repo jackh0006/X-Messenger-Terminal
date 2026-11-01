@@ -121,14 +121,14 @@ fingerprint_words() {
 	raw=$(printf '%s' "$fp" | base64 -d 2>/dev/null) || return 1
 	hex=$(printf '%s' "$raw" | xxd -p -c 256)
 	local i bitval=0 bits=0
-	for ((i=0; i<${#hex}; i+=2)); do
+	for ((i = 0; i < ${#hex}; i += 2)); do
 		byte=$((16#${hex:i:2}))
-		bitval=$(( (bitval << 8) | byte ))
+		bitval=$(((bitval << 8) | byte))
 		bits=$((bits + 8))
 		while ((bits >= 11)); do
 			bits=$((bits - 11))
-			indices+=($(( (bitval >> bits) & 0x7FF )))
-			(( ${#indices[@]} == 6 )) && break 2
+			indices+=($(((bitval >> bits) & 0x7FF)))
+			((${#indices[@]} == 6)) && break 2
 		done
 	done
 	# BIP39 English wordlist (first 2048 words, using first 1626 for 11-bit index)
