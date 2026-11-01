@@ -135,7 +135,7 @@ fingerprint_words() {
 	words=()
 	while IFS= read -r w; do
 		words+=("$w")
-	done < "$REPO_DIR/lib/wordlist.txt"
+	done <"$REPO_DIR/lib/wordlist.txt"
 	if ((${#words[@]} != 2048)); then
 		die "wordlist corruption: expected 2048 words, got ${#words[@]}"
 	fi
@@ -280,9 +280,15 @@ cmd_id() {
 	local qr=false show_8_words=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
-			--qr) qr=true; shift ;;
-		--8-words) show_8_words=true; shift ;;
-			*) die "Unknown option: $1" ;;
+		--qr)
+			qr=true
+			shift
+			;;
+		--8-words)
+			show_8_words=true
+			shift
+			;;
+		*) die "Unknown option: $1" ;;
 		esac
 	done
 	load_identity
