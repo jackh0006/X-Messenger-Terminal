@@ -89,22 +89,4 @@ jobs:
           path: evidence/
           retention-days: 90
 
-  scorecard:
-    name: OpenSSF Scorecard
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Run Scorecard
-        uses: ossf/scorecard-action@latest
-        with:
-          results_file: scorecard-results.sarif
-          results_format: sarif
-          publish_results: true
-
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@f0489abddd4e5e9dff53ed28a45b1d6f88978a1b
-        with:
-          sarif_file: scorecard-results.sarif
-          category: scorecard
+  
