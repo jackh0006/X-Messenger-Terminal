@@ -120,24 +120,60 @@ echo "Version: $VERSION | Commit: $COMMIT_HASH | Platform: $PLATFORM"
 echo ""
 
 # ============================================================
-# SECTION 1: Crypto Correctness
+# SECTION 1: Crypto Correctness — the audit RUNS the full suite
 # ============================================================
 echo "--- Section 1: Crypto Correctness ---"
 
-# Interim (Stage 1.8 item 6 pending): the audit does not yet execute the bats
-# suite itself, so here it honestly reports SKIP, never PASS-on-config.
-run_skip "security" "crypto.full_test_suite" \
-    "audit does not run the bats suite yet (Stage 1.8 item 6 pending); suite is exercised by the CI test job" \
-    "Full bats suite passes (exercised count pending)"
+SUITE_STATUS=0
+run_full_suite() {
+    local log="$EVIDENCE_DIR/bats-run.log"
+    local n_tests ok not_ok
+    n_tests=$(grep -hcE '^@test ' "$REPO_ROOT"/tests/*.bats | awk '{s+=$1} END{print s+0}')
+    echo "Running the full bats suite ($n_tests tests)..."
+    rm -f "$log"
+    set +e
+    timeout 900 bats "$REPO_ROOT/tests/" > "$log" 2>&1
+    SUITE_STATUS=$?
+    set -e
+    # Full transparency: the suite output is part of the audit output.
+    cat "$log"
+    ok=$(grep -c '^ok ' "$log" || true)
+    not_ok=$(grep -c '^not ok ' "$log" || true)
+    if [[ $SUITE_STATUS -eq 0 && $not_ok -eq 0 ]]; then
+        add_result "security" "crypto.full_test_suite" "PASS" \
+            "Full bats suite ($n_tests tests) passes" \
+            "ok: $ok, not ok: $not_ok; log: evidence/bats-run.log"
+    else
+        add_result "security" "crypto.full_test_suite" "FAIL" \
+            "Full bats suite ($n_tests tests) passes" \
+            "exit: $SUITE_STATUS, ok: $ok, not ok: $not_ok; log: evidence/bats-run.log; last lines: $(tail -n 20 "$log" | tr '\n' ' ')"
+    fi
+    # Skipped tests surface as individual SKIP rows with their own reasons.
+    local sid sreason
+    while IFS=$'\t' read -r sid sreason; do
+        [[ -z "${sid:-}" ]] && continue
+        run_skip "security" "suite_skip_$sid" \
+            "$sid skips itself via skip() in this environment (-r locally); reason: $sreason" \
+            "bats test $sid skipped in this environment"
+    done < <(sed -nE 's/^ok [0-9]+ ([A-Z]{1,3}[0-9]+)[^#]*# skip (.*)$/\1\t\2/p' "$log")
+}
+
+run_full_suite
 
 # ============================================================
-# SECTION 2: Input Validation (via tests)
+# SECTION 2: Input Validation (derived from the suite outcome)
 # ============================================================
 echo "--- Section 2: Input Validation ---"
 
-run_skip "security" "input.validation_suite" \
-    "audit does not run the bats suite yet (Stage 1.8 item 6 pending); exercised by T03 T04 T05 T11 T12 in the CI test job" \
-    "Input validation exercised by the suite (pending)"
+if [[ $SUITE_STATUS -eq 0 ]]; then
+    add_result "security" "input.validation_suite" "PASS" \
+        "Input validation exercised by the suite" \
+        "exercised by T03 T04 T05 T11 T12 within the full suite run in this audit"
+else
+    add_result "security" "input.validation_suite" "FAIL" \
+        "Input validation exercised by the suite" \
+        "parent suite run failed (see crypto.full_test_suite)"
+fi
 
 # ============================================================
 # SECTION 3: Hygiene
@@ -174,9 +210,21 @@ run_test "security" "hygiene.network_blocked" \
 # ============================================================
 echo "--- Section 4: Platform ---"
 
-run_skip "security" "platform.amd64_tests" \
-    "audit does not run the bats suite yet (Stage 1.8 item 6 pending); amd64 suite is exercised by the CI test matrix" \
-    "All tests pass on amd64 (pending)"
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    if [[ $SUITE_STATUS -eq 0 ]]; then
+        add_result "security" "platform.amd64_tests" "PASS" \
+            "All tests pass on amd64 (current runner)" \
+            "amd64 suite run inside this audit (see crypto.full_test_suite)"
+    else
+        add_result "security" "platform.amd64_tests" "FAIL" \
+            "All tests pass on amd64 (current runner)" \
+            "parent suite run failed (see crypto.full_test_suite)"
+    fi
+else
+    run_skip "security" "platform.amd64_tests" \
+        "this audit runs on $(uname -m); amd64 is exercised by the CI matrix job on ubuntu-24.04" \
+        "All tests pass on amd64"
+fi
 
 if [[ "${CI:-}" == "true" ]]; then
     run_test "scaffold" "platform.arm64_ci_configured" \

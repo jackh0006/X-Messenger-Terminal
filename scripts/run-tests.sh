@@ -26,19 +26,11 @@ else
     log_ok "Network canary passed — network is blocked"
 fi
 
-# Run bats tests
-log_info "Running bats tests..."
-if bats tests/; then
-    log_ok "All bats tests passed"
-else
-    log_err "Some bats tests failed"
-    exit 1
-fi
-
-# Run audit script (generates evidence)
-log_info "Running audit script..."
+# Run the audit — the audit itself runs the full bats suite now
+# (Section 1 of audit.sh), so there is exactly one suite run per job.
+log_info "Running audit (includes the full bats suite)..."
 if ./scripts/audit.sh; then
-    log_ok "Audit passed"
+    log_ok "Audit passed (suite included)"
 else
     log_err "Audit failed"
     exit 1
