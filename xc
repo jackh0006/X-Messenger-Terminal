@@ -643,11 +643,41 @@ cmd_wipe() {
 		exit 0
 	fi
 	[[ $# -gt 0 ]] && die "Unknown: $1. xc wipe takes no options."
-	[[ -d "$DATA_DIR" ]] || die "No data at $DATA_DIR: nothing to wipe."
+
+	# Resolve DATA_DIR to absolute path, refuse symlinks and dangerous paths
+	local resolved_data
+	resolved_data=$(realpath -e "$DATA_DIR" 2>/dev/null) || die "DATA_DIR does not exist or cannot be resolved: $DATA_DIR"
+
+	# Refuse symlinked data dir
+	if [[ -L "$DATA_DIR" ]] || [[ "$resolved_data" != "$DATA_DIR" ]]; then
+		die "Refusing to wipe: DATA_DIR is a symlink or does not match its realpath ($resolved_data)"
+	fi
+
+	# Refuse dangerous paths
+	case "$resolved_data" in
+		/|/home|/home/*|/root|/tmp|/var|/etc|/usr|/opt)
+			die "Refusing to wipe dangerous path: $resolved_data"
+			;;
+	esac
+
+	# Refuse if resolved path is a parent of HOME (extra safety)
+	case "$resolved_data" in
+		"$HOME"|"$HOME"/*)
+			die "Refusing to wipe inside HOME: $resolved_data"
+			;;
+	esac
+
+	# Verify this is an xc data directory by checking for known subdirs
+	[[ -d "$resolved_data/identity" ]] || die "Not an xc data directory: missing identity/"
+	[[ -d "$resolved_data/contacts" ]] || die "Not an xc data directory: missing contacts/"
+	[[ -d "$resolved_data/prekeys" ]] || die "Not an xc data directory: missing prekeys/"
+	[[ -d "$resolved_data/replay" ]] || die "Not an xc data directory: missing replay/"
+	[[ -d "$resolved_data/vault" ]] || die "Not an xc data directory: missing vault/"
+
 	local n_keys n_contacts
-	n_keys=$(find "$PREKEYS_DIR" -name '*.agekey' 2>/dev/null | wc -l | tr -d ' ')
-	n_contacts=$(find "$CONTACTS_DIR" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
-	echo "This erases EVERYTHING in $DATA_DIR:"
+	n_keys=$(find "$resolved_data/prekeys" -name '*.agekey' 2>/dev/null | wc -l | tr -d ' ')
+	n_contacts=$(find "$resolved_data/contacts" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+	echo "This erases EVERYTHING in $resolved_data:"
 	echo "  - your identity (age keys + SSH signing key)"
 	echo "  - $n_contacts contact(s) and $n_keys one-time private key(s)"
 	echo "  - the replay cache (opened-message history) and vault scratch space"
@@ -656,8 +686,18 @@ cmd_wipe() {
 	if [[ "$ans" != "WIPE" ]]; then
 		die "Wipe cancelled — your data is not deleted. Nothing changed."
 	fi
-	rm -rf -- "$DATA_DIR"
-	echo "Erased: all of $DATA_DIR (identity, contacts, $n_keys one-time keys)."
+
+	# Delete only known contents, not the parent directory itself
+	rm -rf -- \
+		"$resolved_data/identity" \
+		"$resolved_data/contacts" \
+		"$resolved_data/prekeys" \
+		"$resolved_data/replay" \
+		"$resolved_data/vault" \
+		2>/dev/null
+	# Remove the data dir itself if empty
+	rmdir "$resolved_data" 2>/dev/null || true
+	echo "Erased: all of $resolved_data (identity, contacts, $n_keys one-time keys)."
 	# Honest limitation (KNOWN_LIMITATIONS.md): flash wear leveling means
 	# deletion is never a hardware-level guarantee.
 	echo "Storage note: on flash memory (SSD, SD card, phone storage), wear leveling can leave recoverable fragments at the hardware level. Deletion here is best effort; treat high-risk messages as safe only on an encrypted filesystem."

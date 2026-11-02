@@ -64,7 +64,7 @@ load 'test_helper'
     pty_cmd "$D_DIR" wipe
     assert_driver_alive || return 1
     assert_status_nonzero || return 1
-    assert_tty_contains "nothing to wipe" || return 1
+    assert_tty_contains "does not exist or cannot be resolved" || return 1
 
     # Full recovery path: fresh init on the same machine works normally.
     new_dirs
