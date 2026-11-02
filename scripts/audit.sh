@@ -426,9 +426,10 @@ run_test "security" "claims.test_ids_covered" \
 # ============================================================
 echo "--- Section 7: Advanced Features ---"
 
-run_planned "scaffold" "adv.forward_secrecy_prekeys" \
-    "not implemented; one-time prekeys are Stage 2 of the roadmap" \
-    "Offline forward secrecy with one-time prekeys"
+run_test "security" "adv.forward_secrecy_prekeys" \
+    "for k in K01 K02 K03 K04 K05 K06; do grep -qE \"^ok [0-9]+ \$k \" '$EVIDENCE_DIR/bats-run.log' 2>/dev/null || { echo \"missing ok row for \$k\"; echo FAIL; exit 0; }; done; echo \"all K01-K06 rows ok in this suite run\"; echo PASS" \
+    "Offline forward secrecy with one-time prekeys (suite rows K01-K06 ran inside this audit)" \
+    10
 
 run_planned "scaffold" "adv.hardware_keys" \
     "not implemented; hardware-backed keys are on the roadmap" \

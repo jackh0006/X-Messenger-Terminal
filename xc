@@ -227,12 +227,20 @@ make_signed_bundle() {
 	local pt="$1"
 	local recip_fp="$2"
 	local expiry="${3:-}"
+	local pkid="${4:-}"
 	local payload msg_id ts sender_fp canon sig
 	payload=$(pad_to_bucket "$pt") || die "Message too large (max $((BUCKETS[64k] - 8)) bytes)"
 	msg_id=$(head -c16 /dev/urandom | xxd -p -c 32) || die "msg_id RNG failed"
 	ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) || die "date failed"
 	sender_fp=$(get_fingerprint) || die "fingerprint failed"
 	canon=$(jq -c -S -n --arg v 1 --arg mid "$msg_id" --arg ts "$ts" --arg sfp "$sender_fp" --arg rfp "$recip_fp" --arg exp "$expiry" --arg pl "$payload" '{v:1, msg_id:$mid, timestamp:$ts, sender_fp:$sfp, recipient_fp:$rfp, expiry:$exp, payload:$pl}') || die "canon build failed"
+	# One-time prekey use is part of the signed canon: the receiver burns the
+	# matching private half only when the canon's id agrees with the key that
+	# actually opened the envelope.
+	if [[ -n "$pkid" ]]; then
+		canon=$(printf '%s' "$canon" | jq -c --arg pk "$pkid" '. + {prekey:$pk}') || die "prekey field failed"
+		canon=$(printf '%s' "$canon" | jq -c -S .)
+	fi
 	sig=$(sign_message "$canon" "$SSH_PRIVKEY_FILE") || die "sign failed"
 	printf '%s' "$canon" | jq --arg sig "$sig" '. + {sig: $sig}' || die "sig embed failed"
 }
@@ -339,12 +347,16 @@ EOF
 cmd_verify() { verify_contact "$1"; }
 
 cmd_send() {
-	local recip="" expires=""
+	local recip="" expires="" nfs=false
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		--expires)
 			expires="${2:-}"
 			shift 2
+			;;
+		--no-forward-secrecy)
+			nfs=true
+			shift 1
 			;;
 		*)
 			recip="${1:-}"
@@ -364,14 +376,46 @@ cmd_send() {
 	local msg_bytes
 	msg_bytes=$(printf '%s' "$msg" | wc -c | tr -d ' ')
 	((msg_bytes <= BUCKETS[64k] - 8)) || die "This message is too long. Maximum is 64 KiB."
+	# One-time prekey pick (offline forward secrecy). Chosen BEFORE any
+	# passphrase prompt: an exhausted bundle refuses without ever asking for
+	# keys. Only the smallest unused key id is consumed, and the same id can
+	# never be picked twice (marked used right after a successful seal).
+	local pk_id="" pk_pub=""
+	if [[ -f "$PREKEYS_DIR/$recip/bundle.pub" ]]; then
+		local used_list pid
+		used_list=""
+		[[ -f "$PREKEYS_DIR/$recip/used.json" ]] && used_list=$(jq -r 'join(",")' "$PREKEYS_DIR/$recip/used.json" 2>/dev/null || true)
+		while IFS= read -r pid; do
+			[[ -z "$pid" ]] && continue
+			case ",$used_list," in
+			*",$pid,"*) continue ;;
+			esac
+			pk_id="$pid"
+			pk_pub=$(jq -r --arg id "$pid" '.keys[] | select(.id == $id) | .pub' "$PREKEYS_DIR/$recip/bundle.pub")
+			break
+		done < <(jq -r '.keys[].id' "$PREKEYS_DIR/$recip/bundle.pub")
+		if [[ -z "$pk_id" ]]; then
+			if [[ "$nfs" != true ]]; then
+				die "No one-time keys left for '$recip': every key in the bundle was used. Ask for a new bundle, or send now without forward secrecy: xc send $recip --no-forward-secrecy"
+			fi
+			log_warn "WARNING: no unused one-time keys for '$recip'. Sealing only to their identity key — WITHOUT forward secrecy (--no-forward-secrecy)."
+		fi
+	fi
 	load_identity
 	local rap rfp bundle
 	rap=$(jq -r .age_pub "$cf")
 	rfp=$(jq -r .fingerprint "$cf")
-	bundle=$(make_signed_bundle "$msg" "$rfp" "$expires") || die "bundle build failed"
+	bundle=$(make_signed_bundle "$msg" "$rfp" "$expires" "$pk_id") || die "bundle build failed"
 	printf 'X-COURIER/1\n' >message.courier.tmp
-	printf '%s' "$bundle" | age -e -r "$rap" >>message.courier.tmp || die "age encrypt failed"
+	if [[ -n "$pk_id" ]]; then
+		printf '%s' "$bundle" | age -e -r "$pk_pub" >>message.courier.tmp || die "age encrypt failed"
+	else
+		printf '%s' "$bundle" | age -e -r "$rap" >>message.courier.tmp || die "age encrypt failed"
+	fi
 	mv message.courier.tmp message.courier
+	if [[ -n "$pk_id" ]]; then
+		mark_used "$recip" "$pk_id" || die "could not record one-time key usage"
+	fi
 	cleanup_identity
 	# Post-seal assertion: the payload that went into age (base64 of the
 	# padded bucket) must decode to exactly one of the bucket sizes.
@@ -390,6 +434,9 @@ cmd_send() {
 	{
 		printf '[OK] Sealed to %s: message.courier\n' "$recip"
 		printf '[INFO] Payload bucket: %s bytes\n' "$msg_bytes"
+		if [[ -n "$pk_id" ]]; then
+			printf '[INFO] One-time key used: %s\n' "$pk_id"
+		fi
 	}
 }
 
@@ -420,12 +467,40 @@ cmd_read() {
 	tail -c +13 "$body_scratch" >"$body_tmp" && mv "$body_tmp" "$body_scratch"
 	load_identity
 	local bundle sfp found f payload pt mid
-	bundle=$(age -d -i "$AGE_PRIVKEY_FILE" <"$body_scratch") || {
+	local used_kf="" used_id="" kf canon_pk
+	bundle=$(age -d -i "$AGE_PRIVKEY_FILE" <"$body_scratch" 2>/dev/null) || {
+		# Not sealed to the long-term identity key: try every unused private
+		# one-time prekey until one opens the envelope. Trying all files (not
+		# a header hint) leaks no key metadata at all.
+		for kf in "$PREKEYS_DIR"/*/*.agekey; do
+			[[ -e "$kf" ]] || continue
+			bundle=$(age -d -i "$kf" <"$body_scratch" 2>/dev/null) && {
+				used_kf="$kf"
+				used_id=$(basename "$kf" .agekey)
+				break
+			}
+		done
+	}
+	if [[ -z "${bundle:-}" ]]; then
 		rm -f "$body_scratch"
 		cleanup_identity
 		die "This file cannot be opened with your keys: it is not for you, was made for a different identity, or was corrupted"
-	}
+	fi
 	rm -f "$body_scratch"
+	if ! printf '%s' "$bundle" | jq -e -c 'has("sig") and has("sender_fp") and has("payload")' >/dev/null 2>&1; then
+		cleanup_identity
+		die "This file does not contain a valid signed message"
+	fi
+	# A message may only claim the one-time key it was really opened with;
+	# on mismatch the key is KEPT and the message refused (a crafted mismatch
+	# must never trick us into burning a key).
+	if [[ -n "$used_kf" ]]; then
+		canon_pk=$(printf '%s' "$bundle" | jq -r '.prekey // empty')
+		if [[ "$canon_pk" != "$used_id" ]]; then
+			cleanup_identity
+			die "One-time key mismatch: message claims '$canon_pk' but was opened with '$used_id'. Message refused, key kept."
+		fi
+	fi
 	sfp=$(printf '%s' "$bundle" | jq -r .sender_fp)
 	found=""
 	for f in "$CONTACTS_DIR"/*.json; do
@@ -447,9 +522,19 @@ cmd_read() {
 		die "Replay detected: this exact message was already opened"
 	fi
 	replay_mark "$mid"
+	# The private prekey half is destroyed ONLY now: decryption succeeded,
+	# the signature verified, the replay check passed, and the claimed key
+	# id matches the key that really opened it.
+	if [[ -n "$used_kf" ]]; then
+		shred -u "$used_kf" 2>/dev/null || rm -f "$used_kf"
+	fi
 	cleanup_identity
 	echo "$pt"
-	log_ok "Decrypted from $sfp (msg_id $mid)"
+	if [[ -n "$used_id" ]]; then
+		log_ok "Decrypted from $sfp (msg_id $mid). Destroyed one-time key $used_id"
+	else
+		log_ok "Decrypted from $sfp (msg_id $mid)"
+	fi
 }
 
 cmd_doctor() {
@@ -536,13 +621,13 @@ main() {
 X Messenger Terminal — Offline Encrypted Courier
 
 Usage: xc <command> [options]
-Commands: init, id, add, verify, send, read, doctor, selftest, wipe, rotate, prekeys, qr-send, qr-read
-Examples: xc init; xc id --qr; echo "msg" | xc send alice; xc read file.courier
+Commands: init, id, add, verify, send, read, doctor, selftest, wipe, rotate, prekeys (make|import), qr-send, qr-read
+Examples: xc init; xc id --qr; echo "msg" | xc send alice; xc read file.courier; xc prekeys make bob
 EOF
 		exit 0
 		;;
 	init) cmd_init "$@" ;; id) cmd_id "$@" ;; add) cmd_add "$@" ;; verify) cmd_verify "$@" ;;
-	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe ;; rotate) cmd_rotate ;; prekeys) cmd_prekeys ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
+	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe ;; rotate) cmd_rotate ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
 	--version) echo "X Messenger Terminal $VERSION" ;;
 	menu | "") show_menu ;;
 	*) die "Unknown: $cmd. Run 'xc --help'." ;;
@@ -561,8 +646,181 @@ cmd_rotate() {
 }
 
 cmd_prekeys() {
-	echo "NOT IMPLEMENTED: prekeys" >&2
-	exit 1
+	local sub="${1:-}"
+	case "$sub" in
+	make)
+		shift 1
+		cmd_prekeys_make "$@"
+		;;
+	import)
+		shift 1
+		cmd_prekeys_import "$@"
+		;;
+	--help | -h)
+		cat <<'EOF'
+One-time prekeys: offline forward secrecy.
+
+  xc prekeys make <contact> [--count N] [--for-fp <fingerprint>]
+      Create N one-time X25519 keypairs. The private halves stay on THIS
+      device; the signed public bundle goes to <contact>.
+  xc prekeys import <contact> <bundle-file|->
+      Import a friend's signed public bundle (signature must verify).
+  Sending uses one key per message and never reuses one. When the bundle
+  is exhausted, 'xc send' refuses unless --no-forward-secrecy is given.
+EOF
+		;;
+	"") die "Usage: xc prekeys make <contact> | xc prekeys import <contact> <bundle-file|-->. Run 'xc prekeys --help' for details." ;;
+	*) die "Unknown prekeys action: '$sub'. Available: make, import." ;;
+	esac
+}
+
+mark_used() {
+	# Record one consumed one-time key id. Writes go through a temp file in
+	# the same directory and a rename, so a half-written used.json can never
+	# make us pick the same key twice.
+	local friend="$1" pid="$2" tmp
+	mkdir -p "$PREKEYS_DIR/$friend"
+	tmp=$(mktemp "$PREKEYS_DIR/$friend/used.tmp.XXXXXX")
+	if [[ -f "$PREKEYS_DIR/$friend/used.json" ]]; then
+		jq -c --arg id "$pid" '. + [$id]' "$PREKEYS_DIR/$friend/used.json" >"$tmp" || {
+			rm -f "$tmp"
+			return 1
+		}
+	else
+		jq -cn --arg id "$pid" '[$id]' >"$tmp" || {
+			rm -f "$tmp"
+			return 1
+		}
+	fi
+	chmod 600 "$tmp"
+	mv "$tmp" "$PREKEYS_DIR/$friend/used.json"
+}
+
+cmd_prekeys_make() {
+	local friend=""
+	local count=""
+	local for_fp=""
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		--count)
+			count="${2:-}"
+			shift 2
+			;;
+		--for-fp)
+			for_fp="${2:-}"
+			shift 2
+			;;
+		-*) die "Unknown option: $1" ;;
+		*)
+			friend="${1:-}"
+			shift
+			;;
+		esac
+	done
+	[[ "$friend" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || die "Usage: xc prekeys make <contact> [--count N] [--for-fp <fingerprint>]"
+	local n
+	n="${count:-100}"
+	case "$n" in
+	"" | *[!0-9]*) die "--count must be a whole number between 1 and 9999" ;;
+	esac
+	((n >= 1 && n <= 9999)) || die "--count must be between 1 and 9999"
+	[[ -f "$IDENTITY_DIR/age.pub" ]] || die "No identity. Run 'xc init' first."
+	[[ -f "$PREKEYS_DIR/$friend/bundle.pub" ]] && die "One-time keys for '$friend' already exist. Re-making would hide which keys are still unused; wipe first if you really must."
+	# Who is this bundle for? A contact record is the easy path; --for-fp is
+	# the explicit path (e.g. their public key arrived on paper).
+	if [[ -n "$for_fp" ]]; then
+		[[ "$for_fp" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || die "--for-fp must look like SHA256:<43 base64 chars>"
+	elif [[ -f "$CONTACTS_DIR/$friend.json" ]]; then
+		for_fp=$(jq -r '.fingerprint' "$CONTACTS_DIR/$friend.json")
+	else
+		die "Unknown contact '$friend': add them first (xc add $friend), or pass --for-fp with their fingerprint."
+	fi
+	ensure_data_dirs
+	mkdir -p "$PREKEYS_DIR/$friend"
+	chmod 700 "$PREKEYS_DIR/$friend"
+	load_identity
+	local fdir canon id pub ts i
+	fdir="$PREKEYS_DIR/$friend"
+	ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+	canon=$(jq -c -S -n --arg fp "$for_fp" --arg created "$ts" '{type:"one-time-prekeys", v:1, for_fp:$fp, created:$created, keys:[]}')
+	for ((i = 1; i <= n; i++)); do
+		printf -v id '%04d' "$i"
+		age-keygen -o "$fdir/$id.agekey" >/dev/null 2>&1 || {
+			rm -rf "$fdir"
+			die "age-keygen failed"
+		}
+		chmod 600 "$fdir/$id.agekey"
+		pub=$(age-keygen -y "$fdir/$id.agekey" 2>/dev/null) || {
+			rm -rf "$fdir"
+			die "could not read back $id.agekey"
+		}
+		canon=$(jq -c --arg id "$id" --arg pub "$pub" '.keys += [{id:$id, pub:$pub}]' <<<"$canon")
+	done
+	canon=$(jq -c -S <<<"$canon")
+	local sig
+	sig=$(sign_message "$canon" "$SSH_PRIVKEY_FILE") || {
+		rm -rf "$fdir"
+		die "signing failed"
+	}
+	jq --arg sig "$sig" '. + {sig:$sig}' <<<"$canon" >"$fdir/bundle.pub"
+	chmod 600 "$fdir/bundle.pub"
+	cleanup_identity
+	log_ok "One-time keys ready: $n keys for '$friend'"
+	echo "Private halves stay on THIS device under $fdir (deleted one by one as their messages are opened)."
+	echo "Give the public bundle to '$friend': $fdir/bundle.pub"
+}
+
+cmd_prekeys_import() {
+	local friend="${1:-}" src="${2:-}"
+	[[ $# -eq 2 ]] || die "Usage: xc prekeys import <contact> <bundle-file|->"
+	[[ "$friend" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || die "Invalid contact name: $friend"
+	[[ -f "$CONTACTS_DIR/$friend.json" ]] || die "Unknown contact '$friend'. Add them first: xc add $friend"
+	if [[ -f "$PREKEYS_DIR/$friend/bundle.pub" ]]; then
+		die "A bundle for '$friend' is already imported. Wipe the folder $PREKEYS_DIR/$friend before importing another."
+	fi
+	local data
+	case "$src" in
+	-) data=$(cat) ;;
+	*)
+		[[ -f "$src" ]] || die "Not found: $src"
+		data=$(cat "$src")
+		;;
+	esac
+	[[ -n "$data" ]] || die "Bundle is empty"
+	if ! printf '%s' "$data" | jq -e -c 'has("sig") and has("keys") and has("for_fp")' >/dev/null 2>&1; then
+		die "This does not look like a one-time-prekeys bundle"
+	fi
+	# The bundle must carry its maker's valid signature, be addressed to THIS
+	# identity, and contain sane keys — otherwise nothing gets written.
+	local ssh_pub sig canon myfp count id pub
+	ssh_pub=$(jq -r '.ssh_pub' "$CONTACTS_DIR/$friend.json")
+	canon=$(printf '%s' "$data" | jq -c -S 'del(.sig)')
+	sig=$(printf '%s' "$data" | jq -r '.sig')
+	verify_signature "$canon" "$sig" "$ssh_pub" || die "Import refused: the bundle's signature does not verify against '$friend's registered key."
+	myfp=$(get_fingerprint)
+	if [[ "$(printf '%s' "$data" | jq -r '.for_fp')" != "$myfp" ]]; then
+		die "This bundle was not made for this identity (for_fp $(printf '%s' "$data" | jq -r '.for_fp'), yours $myfp)."
+	fi
+	count=$(printf '%s' "$data" | jq '.keys | length')
+	[[ "$count" -ge 1 && "$count" -le 9999 ]] || die "Bundle has an impossible key count: $count"
+	while IFS= read -r id; do
+		[[ -z "$id" ]] && continue
+		[[ "$id" =~ ^[0-9]{4}$ ]] || die "Bundle has a malformed one-time key id: '$id'"
+	done < <(printf '%s' "$data" | jq -r '.keys[].id')
+	while IFS= read -r pub; do
+		[[ -z "$pub" ]] && continue
+		[[ "$pub" =~ ^age1[0-9a-z]{58}$ ]] || die "Bundle has a malformed public key: '$pub'"
+	done < <(printf '%s' "$data" | jq -r '.keys[].pub')
+	if [[ "$(printf '%s' "$data" | jq -r '.keys[].id' | sort -u | wc -l | tr -d ' ')" != "$count" ]]; then
+		die "Bundle has duplicate one-time key ids"
+	fi
+	ensure_data_dirs
+	mkdir -p "$PREKEYS_DIR/$friend"
+	chmod 700 "$PREKEYS_DIR/$friend"
+	printf '%s\n' "$data" >"$PREKEYS_DIR/$friend/bundle.pub"
+	chmod 600 "$PREKEYS_DIR/$friend/bundle.pub"
+	log_ok "Imported $count one-time keys from '$friend'"
+	echo "Messages you send to '$friend' use one of these keys each, and never the same key twice."
 }
 
 cmd_qr_send() {

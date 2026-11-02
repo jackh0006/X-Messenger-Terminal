@@ -35,5 +35,6 @@
 | C-31 | No plaintext traces: no leftover vault/body files (T13), data dir 0700 and sensitive files 0600 (T14), no passphrase in any data-dir file or in `ps` output (T15) | T13, T14, T15 | `tests/04_hygiene.bats` | verified |
 | C-32 | On the arm64 CI runner (ubuntu-24.04-arm), T18 asserts `uname -m` == aarch64 and that `xc --version` + `xc doctor` run clean; it skips on other architectures | T18 | `.github/workflows/ci.yml`, CI run logs | verified (CI job) |
 | C-33 | Real-device Termux test checklist exists and is owner-run; marked NOT YET VERIFIED | T19 | `docs/TERMUX_MANUAL_TEST.md` | scaffold (owner-run pending) |
+| C-34 | Per-friend one-time prekeys: bundles are signed and import-verified (for this identity), the sender consumes one key per send and never reuses, the receiver burns the private half only after decryption AND signature verification AND replay check all pass, garbage messages never burn a key, and an exhausted bundle refuses to send unless `--no-forward-secrecy` is given | K01, K02, K03, K04, K05, K06 | `tests/07_prekeys.bats`, `xc` source | verified |
 
 *Status: "verified" = test + evidence exist; "scaffold" = artifact exists but the capability is not yet exercised; "planned" = in ROADMAP.md for a future stage.*
