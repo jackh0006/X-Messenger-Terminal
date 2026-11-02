@@ -653,14 +653,17 @@ cmd_wipe() {
 		die "Refusing to wipe: DATA_DIR is a symlink or does not match its realpath ($resolved_data)"
 	fi
 
-	# Refuse dangerous paths
+	# Refuse dangerous paths (exact matches and prefixes)
 	case "$resolved_data" in
-		/|/home|/home/*|/root|/tmp|/var|/etc|/usr|/opt)
+		/|/home|/root|/tmp|/var|/etc|/usr|/opt)
+			die "Refusing to wipe dangerous path: $resolved_data"
+			;;
+		/home/*)
 			die "Refusing to wipe dangerous path: $resolved_data"
 			;;
 	esac
 
-	# Refuse if resolved path is a parent of HOME (extra safety)
+	# Refuse if resolved path is under HOME (extra safety)
 	case "$resolved_data" in
 		"$HOME"|"$HOME"/*)
 			die "Refusing to wipe inside HOME: $resolved_data"
