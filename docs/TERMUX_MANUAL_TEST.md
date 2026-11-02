@@ -70,10 +70,7 @@ the results below.**
 
 ### 6. Roadmap stubs stay honest
 
-- [ ] `xc qr-send|qr-read` still print `NOT IMPLEMENTED: <cmd>` and exit 1
-- [ ] `xc prekeys --help` shows make/import; a make + hand-over + import round trip with a second phone works (see ROADMAP Stage 2)
-- [ ] `xc wipe` on a copy dir: lowercase `yes` is refused, `WIPE` erases the whole folder including contacts and one-time keys; after wiping, `xc init` works again
-- [ ] `xc rotate` with `--keep-old`: fingerprint changes, `identity.old/` holds the old encrypted keys, contacts must re-add and re-verify, and a courier sealed before the rotation really cannot be opened anymore
+- [ ] (none — all Stage 2 commands are now implemented)
 
 ### 7. Uninstall
 

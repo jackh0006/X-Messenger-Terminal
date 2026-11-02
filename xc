@@ -627,7 +627,7 @@ EOF
 		exit 0
 		;;
 	init) cmd_init "$@" ;; id) cmd_id "$@" ;; add) cmd_add "$@" ;; verify) cmd_verify "$@" ;;
-	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe "$@" ;; rotate) cmd_rotate "$@" ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
+	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe "$@" ;; rotate) cmd_rotate "$@" ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send "$@" ;; qr-read) cmd_qr_read "$@" ;;
 	--version) echo "X Messenger Terminal $VERSION" ;;
 	menu | "") show_menu ;;
 	*) die "Unknown: $cmd. Run 'xc --help'." ;;
@@ -960,14 +960,229 @@ cmd_prekeys_import() {
 	echo "Messages you send to '$friend' use one of these keys each, and never the same key twice."
 }
 
+# QR frame constants: what one frame may carry, on both sides.
+QFRAME_CHUNK_SEND=600 # raw bytes per frame written by qr-send
+QFRAME_CHUNK_MAX=1024 # decoded-byte cap the reader accepts per frame
+QFRAME_COUNT_MAX=4096 # total-frame cap the reader accepts
+
 cmd_qr_send() {
-	echo "NOT IMPLEMENTED: qr-send" >&2
-	exit 1
+	# qr-send = the regular, already-tested send path into message.courier,
+	# then that courier is split into numbered text frames under message.qr/.
+	# Reusing cmd_send means SEND's guarantees (contact validation, bucket
+	# padding, prekey usage, signature) are exercised here for free by the
+	# same suite rows.
+	if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+		echo "Usage: xc qr-send <friend> [--png] [--expires <date>] [--no-forward-secrecy]"
+		echo "Seals a message like 'xc send' (same passphrase prompt, same one-time"
+		echo "prekey rules), then splits message.courier into numbered frames under"
+		echo "message.qr/ (NNNN.txt; --png additionally renders each as a PNG)."
+		echo "The friend reassembles and decrypts with: xc qr-read ... ; xc read ..."
+		exit 0
+	fi
+	local png=false a
+	declare -a rest
+	for a in "$@"; do
+		case "$a" in
+		--png) png=true ;;
+		-*) rest+=("$a") ;;
+		*) rest+=("$a") ;;
+		esac
+	done
+	[[ ! -e message.qr ]] || die "message.qr already exists here; qr-send would mix frames from two messages. Move or delete it first."
+	[[ ! -f message.courier ]] || die "message.courier already exists here; qr-send would overwrite it. Move it first."
+	cmd_send "${rest[@]}"
+	local courier="$PWD/message.courier"
+	[[ -s "$courier" ]] || die "the send step did not produce message.courier; cannot frame anything."
+	local total_bytes i idx
+	total_bytes=$(wc -c <"$courier" | tr -d ' ')
+	local chunk_count
+	chunk_count=$(((total_bytes + QFRAME_CHUNK_SEND - 1) / QFRAME_CHUNK_SEND))
+	((chunk_count <= QFRAME_COUNT_MAX)) || die "This message would need $chunk_count frames but the reader accepts at most $QFRAME_COUNT_MAX."
+	mkdir -p message.qr
+	chmod 700 message.qr
+	local tmpf
+	tmpf="$PWD/message.qr/.chunk.raw"
+	for ((i = 0; i < chunk_count; i++)); do
+		idx=$((i + 1))
+		dd if="$courier" bs="$QFRAME_CHUNK_SEND" skip="$i" count=1 2>/dev/null >"$tmpf"
+		{
+			printf 'XQ1 %s %s %s\n' "$idx" "$chunk_count" "$total_bytes"
+			base64 -w0 <"$tmpf"
+			printf '\n'
+		} >"message.qr/$(printf '%04d' "$idx").txt" || {
+			rm -f "$tmpf"
+			die "could not write frame $idx"
+		}
+		rm -f "$tmpf"
+	done
+	if [[ "$png" == true ]]; then
+		command -v qrencode >/dev/null || {
+			die "qrencode is not installed; frames were written as text only (install qrencode and rerun with --png)."
+		}
+		local f
+		for f in message.qr/*.txt; do
+			qrencode -o "${f%.txt}.png" -s 6 -t PNG <"$f" || die "qrencode failed on $f"
+		done
+	fi
+	printf '[OK] QR frames written: %s frames under message.qr/ (%s bytes each, the last one smaller).\n' "$chunk_count" "$QFRAME_CHUNK_SEND"
+	echo "Hand or show the frame files to your friend; they run: xc qr-read --out message.courier message.qr/*.txt then xc read message.courier"
 }
 
 cmd_qr_read() {
-	echo "NOT IMPLEMENTED: qr-read" >&2
-	exit 1
+	# Frame-ONLY reader: no identity, no passphrase, no data dir needed.
+	# It parses XQ1 frames under hard rules and writes the assembled bytes
+	# to --out (default ./message.courier). Decryption stays with 'xc read'.
+	if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+		echo "Usage: xc qr-read [--out <file>] <frame-file ...> | <dir-with-frames>"
+		echo "Assembles XQ1 frames (one text file per frame) into the original"
+		echo "courier file. Rules: complete set, in-range unique indexes, caps on"
+		echo "frame count (4096) and per-frame decoded bytes (1024), and the chunk"
+		echo "sizes must add up to the declared total."
+		exit 0
+	fi
+	local out="message.courier"
+	declare -a args
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		--out)
+			out="${2:-}"
+			shift 2
+			;;
+		*)
+			args+=("$1")
+			shift 1
+			;;
+		esac
+	done
+	((${#args[@]} >= 1)) || die "Usage: xc qr-read [--out <file>] <frame-file ...> | <dir-with-frames>"
+	[[ -n "$out" ]] || die "--out needs a file name"
+	[[ ! -e "$out" ]] || die "Refusing to overwrite existing '$out'; give a different --out or move it first."
+	# Expand a directory argument into its frame files (sorted by index).
+	declare -a frames
+	local a f
+	for a in "${args[@]}"; do
+		if [[ -d "$a" ]]; then
+			local n_dir_frames=0
+			for f in "$a"/*.txt; do
+				[[ -f "$f" ]] || continue
+				frames+=("$f")
+				n_dir_frames=$((n_dir_frames + 1))
+			done
+			((n_dir_frames >= 1)) || die "Directory '$a' holds no frame files"
+		else
+			[[ -f "$a" ]] || die "Not found: $a"
+			frames+=("$a")
+		fi
+	done
+	local tmpd
+	tmpd=$(mktemp -d "${TMPDIR:-/tmp}/xc-qrread.XXXXXX")
+	declare -A seen_body=()
+	local total_declared="" orig_declared="" idx total orig header b64 clen tmpc
+	local frame_payload pieces=0
+	for f in "${frames[@]}"; do
+		# Normalize: CRLF (a frame pasted via clipboard) still parses.
+		frame_payload="$tmpd/payload"
+		if [[ "$f" == *.png || "$f" == *.jpg || "$f" == *.jpeg ]]; then
+			command -v zbarimg >/dev/null || die "$f is an image but zbarimg is not installed (install zbar, or pass the frame text file)."
+			zbarimg -q --raw -o "$frame_payload" "$f" || {
+				rm -rf "$tmpd"
+				die "Could not decode QR from $f"
+			}
+		else
+			tr -d '\r' <"$f" >"$frame_payload" || {
+				rm -rf "$tmpd"
+				die "Could not read $f"
+			}
+		fi
+		header=$(head -1 "$frame_payload")
+		if [[ ! "$header" =~ ^XQ1\ ([0-9]+)\ ([0-9]+)\ ([0-9]+)$ ]]; then
+			rm -rf "$tmpd"
+			die "Frame '$f' rejected: payload is not a valid QR frame (expects 'XQ1 <idx> <total> <orig_bytes>' + one base64 line)"
+		fi
+		idx="${BASH_REMATCH[1]}"
+		total="${BASH_REMATCH[2]}"
+		orig="${BASH_REMATCH[3]}"
+		# Caps and range, each with its own plain-words failure.
+		((total >= 1 && total <= QFRAME_COUNT_MAX)) || {
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: frame count too large ($total; cap is $QFRAME_COUNT_MAX frames)."
+		}
+		((idx >= 1 && idx <= total)) || {
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: index $idx is out of range (1..$total)."
+		}
+		if [[ -n "$total_declared" ]]; then
+			[[ "$total" == "$total_declared" && "$orig" == "$orig_declared" ]] || {
+				rm -rf "$tmpd"
+				die "Frame '$f' disagrees with the others about its set (frame count or declared total size)."
+			}
+		else
+			total_declared="$total"
+			orig_declared="$orig"
+		fi
+		# Exactly one more line (the base64 chunk); anything else refuses.
+		if [[ $(wc -l <"$frame_payload" | tr -d ' ') -ne 2 ]]; then
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: a frame is exactly a header line and one base64 chunk line."
+		fi
+		b64=$(tail -1 "$frame_payload")
+		if [[ -z "$b64" ]]; then
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: the chunk line is empty."
+		fi
+		# A duplicate index is allowed only when the chunk is identical.
+		if [[ -n "${seen_body[$idx]:-}" ]]; then
+			[[ "${seen_body[$idx]}" == "$b64" ]] || {
+				rm -rf "$tmpd"
+				die "Frame '$f' is rejected: duplicate-frame conflict for index $idx (same index, different data)."
+			}
+			continue
+		fi
+		tmpc="$tmpd/chunk.check"
+		: >"$tmpc"
+		if ! printf '%s' "$b64" | base64 -d >"$tmpc" 2>/dev/null; then
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: the chunk line is not valid base64."
+		fi
+		clen=$(wc -c <"$tmpc" | tr -d ' ')
+		((clen >= 1 && clen <= QFRAME_CHUNK_MAX)) || {
+			rm -rf "$tmpd"
+			die "Frame '$f' is rejected: chunk too large ($clen bytes decoded; cap is $QFRAME_CHUNK_MAX per frame, or the chunk line is empty)."
+		}
+		mv "$tmpc" "$tmpd/piece.$idx"
+		seen_body[$idx]="$b64"
+		pieces=$((pieces + 1))
+	done
+	# Every index of the declared set must be present.
+	local i missing=()
+	for ((i = 1; i <= total_declared; i++)); do
+		[[ -n "${seen_body[$i]:-}" ]] || missing+=("$i")
+	done
+	if ((${#missing[@]} > 0)); then
+		rm -rf "$tmpd"
+		die "Incomplete frame set — missing: ${missing[*]}"
+	fi
+	# Assemble in index order into a temp file, THEN the size must match
+	# exactly the declared total before anything lands at --out.
+	local asmf="$tmpd/assembled"
+	: >"$asmf"
+	local got=0
+	for ((i = 1; i <= total_declared; i++)); do
+		cat "$tmpd/piece.$i" >>"$asmf"
+	done
+	got=$(wc -c <"$asmf" | tr -d ' ')
+	if [[ "$got" != "$orig_declared" ]]; then
+		rm -rf "$tmpd"
+		die "Assembled $got bytes but the frames declared total size $orig_declared — the set is incomplete or damaged. Nothing was written."
+	fi
+	mv "$asmf" "$out" || {
+		rm -rf "$tmpd"
+		die "could not write '$out'"
+	}
+	chmod 600 "$out"
+	rm -rf "$tmpd"
+	log_ok "Assembled $total_declared frames ($got bytes) -> $out"
+	echo "Next step: open it with 'xc read $out'"
 }
 
 main "$@"

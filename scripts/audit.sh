@@ -436,6 +436,11 @@ run_test "security" "adv.rotate_replacement" \
     "Key rotation behind a typed confirmation: refusal changes nothing, old-key couriers become unopenable, re-added contacts round trip, --keep-old shelves old files (suite rows R01-R05 ran inside this audit)" \
     10
 
+run_test "security" "adv.qr_frame_rules" \
+    "for k in Q01 Q02 Q03 Q04 Q05 Q06; do grep -qE \"^ok [0-9]+ \$k \" '$EVIDENCE_DIR/bats-run.log' 2>/dev/null || { echo \"missing ok row for \$k\"; echo FAIL; exit 0; }; done; echo \"all Q01-Q06 rows ok in this suite run\"; echo PASS" \
+    "QR frame parser: complete set required, in-range unique indexes, per-frame/byte/count caps, sum-check, conflicting duplicates refused, garbage cleanly refused (suite rows Q01-Q06 ran inside this audit)" \
+    10
+
 run_planned "scaffold" "adv.hardware_keys" \
     "not implemented; hardware-backed keys are on the roadmap" \
     "Hardware-backed keys support"
