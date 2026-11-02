@@ -1,5 +1,5 @@
-[PASS] crypto.full_test_suite: Full bats suite (37 tests) passes
-  Details: ok: 37, not ok: 0; log: evidence/bats-run.log
+[PASS] crypto.full_test_suite: Full bats suite (43 tests) passes
+  Details: ok: 43, not ok: 0; log: evidence/bats-run.log
 [SKIP] suite_skip_T16: bats test T16 skipped in this environment
   Details: SKIP: T16 skips itself via skip() in this environment (-r locally); reason: no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok
 [SKIP] suite_skip_T18: bats test T18 skipped in this environment
@@ -62,6 +62,9 @@ PASS
 [PASS] adv.rotate_replacement: Key rotation behind a typed confirmation: refusal changes nothing, old-key couriers become unopenable, re-added contacts round trip, --keep-old shelves old files (suite rows R01-R05 ran inside this audit)
   Details: all R01-R05 rows ok in this suite run
 PASS
+[PASS] adv.qr_frame_rules: QR frame parser: complete set required, in-range unique indexes, per-frame/byte/count caps, sum-check, conflicting duplicates refused, garbage cleanly refused (suite rows Q01-Q06 ran inside this audit)
+  Details: all Q01-Q06 rows ok in this suite run
+PASS
 [PLANNED] adv.hardware_keys: Hardware-backed keys support
   Details: not implemented; hardware-backed keys are on the roadmap
 [PLANNED] adv.standards_mapping: Standards mapping verified
@@ -82,6 +85,6 @@ PASS
   Details: PASS
 
 === Summary ===
-Security checks (exercised by tests): 22 total | PASS: 18 | FAIL: 0 | SKIP: 4 | PLANNED: 0
+Security checks (exercised by tests): 23 total | PASS: 19 | FAIL: 0 | SKIP: 4 | PLANNED: 0
 Scaffold checks (files/config/planned work): 18 total | PASS: 8 | FAIL: 0 | SKIP: 1 | PLANNED: 9
-Total: 40 checks | PASS 26, FAIL 0, SKIP 5, PLANNED 9
+Total: 41 checks | PASS 27, FAIL 0, SKIP 5, PLANNED 9

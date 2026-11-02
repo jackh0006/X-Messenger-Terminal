@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "9115e9d2d8d3e8582f146682c0f57dfa2f5dd273",
-    "commit_date": "2026-11-02 13:26:11 +0100",
+    "commit": "cdbc7a5282df264a7cc5fb63cf932b85e6530189",
+    "commit_date": "2026-11-02 14:33:19 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,15 +12,15 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-02T12:26:18Z"
+    "audit_timestamp": "2026-11-02T13:33:24Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
       "category": "security",
       "status": "PASS",
-      "message": "Full bats suite (37 tests) passes",
-      "details": "ok: 37, not ok: 0; log: evidence/bats-run.log"
+      "message": "Full bats suite (43 tests) passes",
+      "details": "ok: 43, not ok: 0; log: evidence/bats-run.log"
     },
     {
       "id": "suite_skip_T16",
@@ -233,6 +233,13 @@
       "details": "all R01-R05 rows ok in this suite run\nPASS"
     },
     {
+      "id": "adv.qr_frame_rules",
+      "category": "security",
+      "status": "PASS",
+      "message": "QR frame parser: complete set required, in-range unique indexes, per-frame/byte/count caps, sum-check, conflicting duplicates refused, garbage cleanly refused (suite rows Q01-Q06 ran inside this audit)",
+      "details": "all Q01-Q06 rows ok in this suite run\nPASS"
+    },
+    {
       "id": "adv.hardware_keys",
       "category": "scaffold",
       "status": "PLANNED",
@@ -297,8 +304,8 @@
     }
   ],
   "summary": {
-    "total": 40,
-    "PASS": 26,
+    "total": 41,
+    "PASS": 27,
     "FAIL": 0,
     "SKIP": 5,
     "PLANNED": 9
