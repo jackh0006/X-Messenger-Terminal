@@ -4,14 +4,20 @@ Based on the project's own rubric with caps enforced.
 
 | Criterion | Weight | How to Score | Cap if Missing |
 |-----------|--------|--------------|----------------|
-| Cryptography is standard and reviewed | 20 | Uses only published, reviewed primitives (age, OpenSSH), no custom crypto | — |
+| Cryptography is standard and reviewed | 20 | Uses only published, reviewed primitives (age, OpenSSH), no custom crypto. **Stays ≤15 until an independent review exists.** | — |
 | Independent audit | 20 | 0 = none, 10 = informal review, 20 = published professional audit | **Overall max 75 if 0** |
 | Forward secrecy | 10 | 0 = none, 5 = optional prekeys, 10 = default prekeys | — |
 | Metadata minimization | 10 | 10 = no servers/accounts, loopback default; −2 per opt-in leaky mode | — |
 | Sender authentication + replay protection | 10 | 0 = none, 5 = optional XM1S + replay, 10 = mandatory + default | — |
 | Endpoint hardening | 10 | FLAG_SECURE (Android), encrypted vault, CSP, no unsafe-inline | — |
-| Supply chain & reproducibility | 10 | Signed releases, pinned SHAs, SBOM, reproducible build, Scorecard ≥8 | **Overall max 65 if unsigned** |
-| Ease of use | 10 | User-tested with non-technical people | **Overall max 60 if claims without evidence** |
+| Supply chain & reproducibility | 10 | Signed releases, pinned SHAs, SBOM, reproducible build, Scorecard ≥8. **Never exceeds what has actually been exercised** (no signed release exists → stays low) | **Overall max 65 if unsigned** |
+| Ease of use | 10 | User-tested with non-technical people. **Counts 0 until a real user test exists; code reading is not a test** | **Overall max 60 if claims without evidence** |
+
+## Scoring Rules
+
+1. **A number goes up only when a test exercises it.** No test, no points — file existence, keyword greps, or future work never earn security-category points.
+2. **Crypto stays ≤15/20 until an independent review** of the crypto-relevant code by someone outside this project.
+3. Caps still apply on top: no audit → ≤75; unsigned releases → ≤65; claims without evidence → ≤60.
 
 ## Cap Enforcement
 
@@ -27,22 +33,24 @@ raw_score = sum(criterion_score)
 final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 ```
 
-## Current Assessment (Stage 1.6)
+## Current Assessment (Stage 1.8)
 
 | Criterion | Score | Evidence Reference |
 |-----------|-------|-------------------|
-| Standard crypto | **20** | `tests/01_correctness.bats` T01–T05, `tests/02_tamper.bats` T06–T10; `xc` uses `age` (X25519+ChaCha20-Poly1305) + OpenSSH Ed25519 (`ssh-keygen -Y sign/verify`) |
-| Independent audit | **0** | No audit; `scripts/audit.sh` is self-audit only |
-| Forward secrecy | **0** | Not implemented; `xc prekeys`/`rotate`/`wipe`/`qr-send`/`qr-read` are stubs (`NOT IMPLEMENTED`) |
-| Metadata minimization | **10** | No servers/accounts, offline by design; `tests/04_hygiene.bats` T16 (network blocked under `unshare -rn`) |
-| Sender auth + replay | **10** | Ed25519 sign-then-encrypt + replay cache; `tests/02_tamper.bats` T08 (forged sig), T09 (replay) |
-| Endpoint hardening | **5** | Vault encryption, 0700/0600 perms; `tests/04_hygiene.bats` T13–T15 |
-| Supply chain & reproducibility | **5** | Pinned Actions (`tests/06_supply.bats` T20); `scripts/release.sh` has `ssh-keygen -Y sign` but **no signed release exists yet**; no SBOM/reproducible build verification |
-| Ease of use | **5** | Menu-driven, plain words, <40 chars; `xc` shows numbered menu |
+| Standard crypto | **15** | Exercised: tests/01_correctness.bats T01–T05, tests/02_tamper.bats T06–T10 (round-trip, wrong recipient, wrong passphrase, buckets, byte-flip, truncation, re-signed key, replay, expiry) — run inside audit.sh / CI. Below 20 by rule: no independent review yet. |
+| Independent audit | **0** | No audit; audit.sh is a self-check suite (38 checks, statuses PASS/FAIL/SKIP/PLANNED). |
+| Forward secrecy | **0** | Not implemented; `xc prekeys`/`rotate`/`wipe`/`qr-send`/`qr-read` are stubs (`NOT IMPLEMENTED`, tested by T20). |
+| Metadata minimization | **10** | No servers/accounts by design (xc, README); offline property exercised by T16 (CANARY: SKIP locally, runs in the rootless CI job) and `unshare` audit check when available. |
+| Sender auth + replay | **10** | Ed25519 sign-then-encrypt + replay cache exercised by T08 (re-signed wrong key), T09 (replay rejected). |
+| Endpoint hardening | **5** | Exercised by T13 (no plaintext leftovers), T14 (0700 dir / 0600 files), T15 (no passphrase in files or `ps`). FLAG_SECURE/csp not applicable yet (no web app). |
+| Supply chain & reproducibility | **5** | Exercised by T20 (no expect/minisign/passphrase-CLI in shipped code) + supply.pinned_actions config check + Actions pinned by SHA. No signed release, SBOM, or reproducible build has been exercised (audit rows are PLANNED). |
+| Ease of use | **0** | Rule: counts only after a real user test with non-technical people. C-15 (menu plain-words) is code-only; no user test exists. |
 
-| **Raw total** | **55** | |
-| **Cap: no audit (75)** | 55 | |
-| **Cap: unsigned releases (65)** | 55 | No signed release published |
-| **Cap: claims without evidence (60)** | 55 | CLAIMS.md has 25 claims with test+evidence mapping |
+| **Raw total** (15+0+0+10+10+5+5+0) | **45** | |
+| **Cap: no audit (75)** | not binding | |
+| **Cap: unsigned releases (65)** | not binding | |
+| **Cap: claims without evidence (60)** | not binding numerically (raw 45 already ≤ 60); note several claim rows (C-14, C-15, C-17–C-19) are code-existence claims without test IDs yet | CLAIMS.md rows map to real test IDs where applicable (claims.test_ids_covered).
 
-| **Final score** | **55 / 100** | |
+| **Final score** | **45 / 100** | |
+
+Changes from the 55 recorded for Stage 1.7: crypto 20→15 (rule: ≤15 until independent review); ease 5→0 (no user test — a code-only menu is not exercise). Nothing else moved: scored criteria keep their test-exercised evidence.
