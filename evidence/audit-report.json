@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "145059415b4642540e73d343710bdd33f2ce596a",
-    "commit_date": "2026-11-02 11:30:47 +0100",
+    "commit": "215dc6581323af2b04d8e763b37b5358516db037",
+    "commit_date": "2026-11-02 12:39:05 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,15 +12,15 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-02T10:33:16Z"
+    "audit_timestamp": "2026-11-02T11:39:12Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
       "category": "security",
       "status": "PASS",
-      "message": "Full bats suite (23 tests) passes",
-      "details": "ok: 23, not ok: 0; log: evidence/bats-run.log"
+      "message": "Full bats suite (29 tests) passes",
+      "details": "ok: 29, not ok: 0; log: evidence/bats-run.log"
     },
     {
       "id": "suite_skip_T16",
@@ -220,10 +220,10 @@
     },
     {
       "id": "adv.forward_secrecy_prekeys",
-      "category": "scaffold",
-      "status": "PLANNED",
-      "message": "Offline forward secrecy with one-time prekeys",
-      "details": "not implemented; one-time prekeys are Stage 2 of the roadmap"
+      "category": "security",
+      "status": "PASS",
+      "message": "Offline forward secrecy with one-time prekeys (suite rows K01-K06 ran inside this audit)",
+      "details": "all K01-K06 rows ok in this suite run\nPASS"
     },
     {
       "id": "adv.hardware_keys",
@@ -291,9 +291,9 @@
   ],
   "summary": {
     "total": 39,
-    "PASS": 24,
+    "PASS": 25,
     "FAIL": 0,
     "SKIP": 5,
-    "PLANNED": 10
+    "PLANNED": 9
   }
 }
