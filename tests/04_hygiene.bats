@@ -63,14 +63,28 @@ load 'test_helper'
     fi
 }
 
-@test "T16 hygiene: command runs without network access (canary; skipped locally without unshare)" {
-    if ! unshare -rn true 2>/dev/null; then
-        skip "unshare -rn requires root here; the network canary runs in the rootless CI job instead"
+@test "T16 hygiene: command runs without network access (canary)" {
+    # Pick a namespace mechanism: rootless userns+netns first, then a
+    # passwordless-sudo network namespace (GitHub runners), and only skip
+    # when neither exists (some local sandboxes).
+    local mech=""
+    if unshare -rn true 2>/dev/null; then
+        mech="rootless"
+    elif sudo -n unshare -n true 2>/dev/null; then
+        mech="sudo-netns"
+    else
+        skip "no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok"
     fi
     fresh_pair
     # Policy: xc performs no network syscalls. Canary: DNS resolution must
     # fail inside the namespace even if the tool tried to open a socket.
-    STDIN_FILE="$WORK_DIR/msg_T16.bin"; printf 'net check' > "$STDIN_FILE"
-    run unshare -rn bash -c "XCOURIER_DATA_DIR='$A_DIR' '$XC' doctor >/dev/null 2>&1; test \$(getent hosts example.invalid 2>/dev/null | wc -l) -eq 0"
-    [[ "$status" -eq 0 ]]
+    local nsprobe target
+    target="XCOURIER_DATA_DIR='$A_DIR' '$XC' doctor >/dev/null 2>&1; test \$(getent hosts example.invalid 2>/dev/null | wc -l) -eq 0"
+    if [[ "$mech" == "rootless" ]]; then
+        nsprobe=(unshare -rn)
+    else
+        nsprobe=(sudo -n unshare -n)
+    fi
+    run env -u SUDO_ASKPASS "${nsprobe[@]}" bash -c "$target"
+    [[ "$status" -eq 0 ]] || { echo "canary failed via $mech (status $status)"; return 1; }
 }

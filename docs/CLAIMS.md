@@ -33,7 +33,7 @@
 | C-29 | 6-word and 8-word fingerprint displayed in `xc id` and `xc verify` | F02 | `xc` source `cmd_id`, `cmd_verify` | verified |
 | C-30 | Fuzz smoke: corrupted headers and garbage reaching the decrypt step are refused with clean errors, never a crash | T11, T12 | `tests/03_fuzzing.bats` | verified |
 | C-31 | No plaintext traces: no leftover vault/body files (T13), data dir 0700 and sensitive files 0600 (T14), no passphrase in any data-dir file or in `ps` output (T15) | T13, T14, T15 | `tests/04_hygiene.bats` | verified |
-| C-32 | CI matrix builds and runs the suite on arm64 (ubuntu-24.04-arm) | T18 | `.github/workflows/ci.yml`, CI run logs | verified (CI job) |
+| C-32 | On the arm64 CI runner (ubuntu-24.04-arm), T18 asserts `uname -m` == aarch64 and that `xc --version` + `xc doctor` run clean; it skips on other architectures | T18 | `.github/workflows/ci.yml`, CI run logs | verified (CI job) |
 | C-33 | Real-device Termux test checklist exists and is owner-run; marked NOT YET VERIFIED | T19 | `docs/TERMUX_MANUAL_TEST.md` | scaffold (owner-run pending) |
 
 *Status: "verified" = test + evidence exist; "scaffold" = artifact exists but the capability is not yet exercised; "planned" = in ROADMAP.md for a future stage.*
