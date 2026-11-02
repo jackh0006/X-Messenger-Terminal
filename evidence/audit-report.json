@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "02e1af464559a49d6fc2b5a36d59c02424ae347f",
-    "commit_date": "2026-11-01 22:56:01 +0100",
+    "commit": "145059415b4642540e73d343710bdd33f2ce596a",
+    "commit_date": "2026-11-02 11:30:47 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,219 +12,288 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-01T22:08:20Z"
+    "audit_timestamp": "2026-11-02T10:33:16Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
-      "status": "pass",
-      "message": "Full 20-test bats suite passes (run in CI test job)",
-      "details": ""
+      "category": "security",
+      "status": "PASS",
+      "message": "Full bats suite (23 tests) passes",
+      "details": "ok: 23, not ok: 0; log: evidence/bats-run.log"
+    },
+    {
+      "id": "suite_skip_T16",
+      "category": "security",
+      "status": "SKIP",
+      "message": "bats test T16 skipped in this environment",
+      "details": "SKIP: T16 skips itself via skip() in this environment (-r locally); reason: no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok"
+    },
+    {
+      "id": "suite_skip_T18",
+      "category": "security",
+      "status": "SKIP",
+      "message": "bats test T18 skipped in this environment",
+      "details": "SKIP: T18 skips itself via skip() in this environment (-r locally); reason: arm64-only check; this runner is x86_64 (arm64 coverage is the CI matrix job ubuntu-24.04-arm)"
+    },
+    {
+      "id": "suite_skip_T19",
+      "category": "security",
+      "status": "SKIP",
+      "message": "bats test T19 skipped in this environment",
+      "details": "SKIP: T19 skips itself via skip() in this environment (-r locally); reason: Real-device Termux test is owner-run only; CI cannot verify"
     },
     {
       "id": "input.validation_suite",
-      "status": "pass",
-      "message": "Input validation covered by T03, T04, T05, T11, T12",
-      "details": ""
+      "category": "security",
+      "status": "PASS",
+      "message": "Input validation exercised by the suite",
+      "details": "exercised by T03 T04 T05 T11 T12 within the full suite run in this audit"
     },
     {
       "id": "hygiene.shellcheck_clean",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "shellcheck clean (style warnings only)",
       "details": "PASS"
     },
     {
-      "id": "hygiene.no_temp_leaks",
-      "status": "pass",
-      "message": "No temp files remain after success",
-      "details": "PASS"
+      "id": "hygiene.permissions_fixture",
+      "category": "security",
+      "status": "PASS",
+      "message": "throwaway identity created for permission checks",
+      "details": "xc init ran through the real pty path (driver status 0)"
     },
     {
-      "id": "hygiene.permissions_keys_0600",
-      "status": "pass",
-      "message": "Key files have 0600 permissions",
-      "details": "PASS"
+      "id": "hygiene.no_temp_leaks",
+      "category": "security",
+      "status": "PASS",
+      "message": "No temp files remain after success",
+      "details": "init + id through the real pty path; no body.*, vault.*, *.tmp, *.priv leftovers"
     },
     {
       "id": "hygiene.permissions_dirs_0700",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "Data directories created with 0700",
-      "details": "PASS"
+      "details": "all dirs under the throwaway identity dir are 0700"
+    },
+    {
+      "id": "hygiene.permissions_keys_0600",
+      "category": "security",
+      "status": "PASS",
+      "message": "Secret key files have 0600 permissions",
+      "details": "all 2 *.enc files are 0600 in the throwaway identity dir"
     },
     {
       "id": "hygiene.network_blocked",
-      "status": "pass",
+      "category": "security",
+      "status": "SKIP",
       "message": "Network blocked under unshare -rn",
-      "details": "SKIP: unshare requires root"
+      "details": "SKIP: unshare requires root; canary is exercised by the CI test job"
     },
     {
       "id": "platform.amd64_tests",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "All tests pass on amd64 (current runner)",
-      "details": ""
+      "details": "amd64 suite run inside this audit (see crypto.full_test_suite)"
     },
     {
       "id": "platform.arm64_ci_configured",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "SKIP",
       "message": "arm64 CI configured",
-      "details": "PASS"
+      "details": "SKIP: arm64 is exercised only by the CI matrix job on ubuntu-24.04-arm, not on this local runner"
     },
     {
       "id": "platform.termux_checklist_exists",
-      "status": "pass",
-      "message": "Termux manual test checklist exists with NOT YET VERIFIED",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "scaffold-only: Termux checklist exists; the real-device test is owner-run (T19) and has not happened",
+      "details": "PLANNED"
     },
     {
       "id": "supply.pinned_actions",
-      "status": "pass",
-      "message": "All GitHub Actions pinned to commit SHAs",
+      "category": "scaffold",
+      "status": "PASS",
+      "message": "All GitHub Actions pinned to commit SHAs (config check)",
       "details": "PASS"
     },
     {
       "id": "supply.signed_releases",
-      "status": "pass",
-      "message": "Release script includes ssh-keygen -Y signing",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Signed releases exist and verify",
+      "details": "scaffold-only: scripts/release.sh contains ssh-keygen -Y sign, but no signed release artifact has been produced or verified yet"
     },
     {
       "id": "supply.sbom_generated",
-      "status": "pass",
-      "message": "SBOM generation in release script (planned)",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "SBOM generated by a real release",
+      "details": "scaffold-only: no SBOM artifact has been produced by a real release yet"
     },
     {
       "id": "supply.reproducible_build",
-      "status": "pass",
-      "message": "Reproducible build verification documented (planned)",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Reproducible build verified",
+      "details": "scaffold-only: no reproducible-build verification has been run yet"
     },
     {
       "id": "supply.scorecard_configured",
-      "status": "pass",
-      "message": "OpenSSF Scorecard workflow configured",
-      "details": "FAIL"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "OpenSSF Scorecard configured",
+      "details": "scaffold-only: the scorecard-action job was removed from CI earlier (gcr.io billing error); OpenSSF Scorecard is re-planned"
     },
     {
       "id": "supply.no_minisign_in_user_scripts",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "No minisign in user-facing scripts",
       "details": "PASS"
     },
     {
       "id": "supply.no_expect_dependency",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "No expect dependency in shipped code (excludes lib/wordlist.txt)",
       "details": "PASS"
     },
     {
       "id": "supply.no_passphrase_cli",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "No passphrase CLI path in xc",
       "details": "PASS"
     },
     {
       "id": "evidence.claims_md_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "docs/CLAIMS.md exists",
       "details": "PASS"
     },
     {
       "id": "evidence.audit_sh_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "scripts/audit.sh exists and executable",
       "details": "PASS"
     },
     {
       "id": "evidence.score_rubric_exists",
-      "status": "pass",
-      "message": "docs/SCORE_RUBRIC.md exists with caps",
+      "category": "scaffold",
+      "status": "PASS",
+      "message": "docs/SCORE_RUBRIC.md exists",
       "details": "PASS"
     },
     {
       "id": "evidence.score_history_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "docs/SCORE_HISTORY.md exists",
       "details": "PASS"
     },
     {
       "id": "evidence.roadmap_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "docs/ROADMAP.md exists",
       "details": "PASS"
     },
     {
       "id": "evidence.review_prompt_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "docs/REVIEW_ME.md exists",
       "details": "PASS"
     },
     {
+      "id": "claims.test_ids_covered",
+      "category": "security",
+      "status": "PASS",
+      "message": "Every test has a unique ID and every ID is covered by docs/CLAIMS.md",
+      "details": "PASS"
+    },
+    {
       "id": "adv.forward_secrecy_prekeys",
-      "status": "planned",
-      "message": "Offline forward secrecy with one-time prekeys (planned in ROADMAP)",
-      "details": "PLANNED"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Offline forward secrecy with one-time prekeys",
+      "details": "not implemented; one-time prekeys are Stage 2 of the roadmap"
     },
     {
       "id": "adv.hardware_keys",
-      "status": "planned",
-      "message": "Hardware-backed keys support (planned in ROADMAP)",
-      "details": "PLANNED"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Hardware-backed keys support",
+      "details": "not implemented; hardware-backed keys are on the roadmap"
     },
     {
       "id": "adv.standards_mapping",
-      "status": "pass",
-      "message": "Standards mapping doc (planned)",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Standards mapping verified",
+      "details": "scaffold-only: a standards doc exists, but the mapping has not been independently verified"
     },
     {
       "id": "adv.two_person_review",
-      "status": "planned",
-      "message": "Two-person review for crypto changes (planned)",
-      "details": "PLANNED"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "Two-person review of crypto changes",
+      "details": "no two-person review has taken place; the process doc alone is scaffold"
     },
     {
       "id": "adv.threat_model_reviewed",
-      "status": "pass",
-      "message": "THREAT_MODEL.md reviewed by outsider (planned)",
-      "details": "PASS"
+      "category": "scaffold",
+      "status": "PLANNED",
+      "message": "THREAT_MODEL.md reviewed by an outsider",
+      "details": "THREAT_MODEL.md exists, but no outside review has occurred; needs real review"
     },
     {
       "id": "claims.no_hype",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "No hype claims (unhackable, military-grade, CIA-level, guaranteed)",
-      "details": ""
+      "details": "PASS"
     },
     {
       "id": "claims.honest_limitations",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "README/SECURITY.md states honest limitations",
       "details": "PASS"
     },
     {
       "id": "claims.verifiable_not_guaranteed",
-      "status": "pass",
+      "category": "security",
+      "status": "PASS",
       "message": "Marketing uses 'verifiable', not 'guaranteed'",
       "details": "PASS"
     },
     {
       "id": "build.main_script_exists",
-      "status": "pass",
+      "category": "scaffold",
+      "status": "PASS",
       "message": "Main script exists",
       "details": "PASS"
     },
     {
       "id": "build.shellcheck_strict_gates",
-      "status": "pass",
-      "message": "Strict-boundary gates pass",
+      "category": "security",
+      "status": "PASS",
+      "message": "shellcheck style gate on xc passes",
       "details": "PASS"
     }
   ],
   "summary": {
-    "total": 34,
-    "pass": 31,
-    "fail": 0,
-    "planned": 3,
-    "skip": 0
+    "total": 39,
+    "PASS": 24,
+    "FAIL": 0,
+    "SKIP": 5,
+    "PLANNED": 10
   }
 }

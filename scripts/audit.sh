@@ -30,6 +30,11 @@ QRENCODE_VER=$(qrencode --version 2>/dev/null | head -1 || echo "not installed")
 ZBAR_VER=$(zbarimg --version 2>/dev/null | head -1 || echo "not installed")
 SHELLCHECK_VER=$(shellcheck --version 2>/dev/null | head -1 || echo "not installed")
 
+# Test passphrase for the in-audit throwaway identity. Same pattern as the
+# bats suite: passed inline to the pty driver, which strips it from the
+# child's environment — xc only ever sees it typed on its own terminal.
+AUDIT_PASS="correct-horse-battery-22"
+
 cat > "$REPORT" <<EOF
 {
   "meta": {
@@ -115,6 +120,59 @@ run_skip() {
     add_result "$category" "$id" "SKIP" "$desc" "SKIP: $reason"
 }
 
+# ---------------------------------------------------------------
+# Throwaway data dir with real test identity, driven through the same
+# pseudo-terminal path the bats suite uses — so permission and temp-leak
+# checks exercise the real init/id code, never a skip or a vacuous pass.
+# ---------------------------------------------------------------
+PERM_BASE=""
+PERM_FD=""
+PTY_STATUS=0
+PTY_OUTPUT=""
+PTY_ERR=""
+
+audit_cleanup_fixture() {
+    # Invoked by the EXIT trap registered right below this function;
+    # SC2317 fires because the tool does not see trap-driven calls.
+    # shellcheck disable=SC2317
+    if [[ -n "${PERM_BASE:-}" ]]; then
+        rm -rf -- "$PERM_BASE" 2>/dev/null
+    fi
+}
+trap audit_cleanup_fixture EXIT
+
+audit_pty_run() {
+    local dir="$1"; shift
+    local trans
+    trans=$(mktemp "$PERM_BASE/audit-pty.XXXXXX")
+    : > "$trans"
+    PTY_ERR="$PERM_BASE/audit-pty.err"
+    PTY_STATUS=0
+    XC_TEST_PASS="$AUDIT_PASS" python3 "$REPO_ROOT/tests/helpers/pty_drive.py" \
+        --cwd "$PERM_BASE" --timeout 120 --transcript "$trans" \
+        -- XCOURIER_DATA_DIR="$dir" "$REPO_ROOT/xc" "$@" \
+        </dev/null 2>"$PTY_ERR" || PTY_STATUS=$?
+    PTY_OUTPUT=$(tr -d '\r' < "$trans")
+    rm -f "$trans"
+}
+
+audit_ensure_perm_fixture() {
+    [[ -n "$PERM_BASE" && -d "$PERM_FD" ]] && return 0
+    PERM_BASE=$(mktemp -d "$EVIDENCE_DIR/permtest.XXXXXX")
+    PERM_FD="$PERM_BASE/data"
+    audit_pty_run "$PERM_FD" init
+    if [[ $PTY_STATUS -ne 0 || "$PTY_OUTPUT" != *"Identity created and encrypted"* ]]; then
+        add_result "security" "hygiene.permissions_fixture" "FAIL" \
+            "throwaway identity created for permission checks" \
+            "driver status $PTY_STATUS; transcript: $(echo "$PTY_OUTPUT" | tail -n 6 | tr '\n' ' ') stderr: $(tail -n 4 "$PTY_ERR" 2>/dev/null | tr '\n' ' ')"
+        return 1
+    fi
+    add_result "security" "hygiene.permissions_fixture" "PASS" \
+        "throwaway identity created for permission checks" \
+        "xc init ran through the real pty path (driver status 0)"
+    return 0
+}
+
 echo "=== X Messenger Terminal Self-Audit ==="
 echo "Version: $VERSION | Commit: $COMMIT_HASH | Platform: $PLATFORM"
 echo ""
@@ -180,25 +238,65 @@ fi
 # ============================================================
 echo "--- Section 3: Hygiene ---"
 
+# --- Throwaway data dir with a REAL identity (via the pty path), then:
+# --- (a) no_temp_leaks, (b) dirs 0700, (c) secret files 0600.
+echo "--- Section 3: Hygiene (real run: throwaway identity via pty) ---"
+
 run_test "security" "hygiene.shellcheck_clean" \
     "shellcheck -S style '$REPO_ROOT/xc' 2>&1 | grep -v '^In ' | grep -v '^--' | grep . && echo FAIL || echo PASS" \
     "shellcheck clean (style warnings only)" \
     60
 
-run_test "security" "hygiene.no_temp_leaks" \
-    "cd /tmp && rm -rf xc_hygiene && mkdir xc_hygiene && cd xc_hygiene && XCOURIER_DATA_DIR=/tmp/xc_hygiene/alice \"$REPO_ROOT/xc\" init 2>&1 | grep -q 'Identity created' && XCOURIER_DATA_DIR=/tmp/xc_hygiene/alice \"$REPO_ROOT/xc\" id 2>&1 | grep -q 'age1' && find /tmp/xc_hygiene -name 'body.*' -o -name 'vault.*' -o -name '*.tmp' -o -name '*.priv' 2>/dev/null | grep . && echo FAIL || echo PASS" \
-    "No temp files remain after success" \
-    60
+fixture_ok=true
+audit_ensure_perm_fixture || fixture_ok=false
 
-run_test "security" "hygiene.permissions_keys_0600" \
-    "if [ ! -d \"\$HOME/.xcourier\" ]; then echo 'SKIP: no default data dir on this runner (0600 perms exercised by test T14)'; else find \"\$HOME/.xcourier\" -name '*.enc' -o -name '*.json' 2>/dev/null | xargs -r stat -c '%a %n' | awk '\$1 != 600 {print \$2}' | grep . && echo FAIL || echo PASS; fi" \
-    "Key files have 0600 permissions (when a default data dir exists)" \
-    10
+if [[ "$fixture_ok" == true ]]; then
+    # (a) no temp/plaintext leaks after the real init already done, and a
+    # real id run (decrypts both key files) leaving nothing behind.
+    audit_pty_run "$PERM_FD" id
+    local_out=$(find "$PERM_BASE" \( -name 'body.*' -o -name 'vault.*' -o -name '*.tmp' -o -name '*.priv' \) 2>/dev/null)
+    if [[ $PTY_STATUS -ne 0 ]]; then
+        add_result "security" "hygiene.no_temp_leaks" "FAIL" "No temp files remain after success" \
+            "xc id driver status $PTY_STATUS; transcript tail: $(echo "$PTY_OUTPUT" | tail -n 4 | tr '\n' ' ')"
+    elif [[ -n "$local_out" ]]; then
+        add_result "security" "hygiene.no_temp_leaks" "FAIL" "No temp files remain after success" \
+            "leftover files found: $local_out"
+    else
+        add_result "security" "hygiene.no_temp_leaks" "PASS" "No temp files remain after success" \
+            "init + id through the real pty path; no body.*, vault.*, *.tmp, *.priv leftovers"
+    fi
 
-run_test "security" "hygiene.permissions_dirs_0700" \
-    "if [ ! -d \"\$HOME/.xcourier\" ]; then echo 'SKIP: no default data dir on this runner (0700 perms exercised by test T14)'; else find \"\$HOME/.xcourier\" -type d 2>/dev/null | xargs -r stat -c '%a %n' | awk '\$1 != 700 {print \$2}' | grep . && echo FAIL || echo PASS; fi" \
-    "Data directories created with 0700 (when a default data dir exists)" \
-    10
+    # (b) every directory in the data dir must be 0700.
+    bad_dirs=$(find "$PERM_FD" -type d -print0 2>/dev/null | xargs -r0 stat -c '%a %n' | awk '$1 != 700 {print $2}')
+    if [[ -n "$bad_dirs" ]]; then
+        add_result "security" "hygiene.permissions_dirs_0700" "FAIL" "Data directories created with 0700" \
+            "dirs not 0700: $bad_dirs"
+    else
+        add_result "security" "hygiene.permissions_dirs_0700" "PASS" "Data directories created with 0700" \
+            "all dirs under the throwaway identity dir are 0700"
+    fi
+
+    # (c) every encrypted-secret file in the data dir must be 0600.
+    n_enc=$(find "$PERM_FD" -name '*.enc' 2>/dev/null | wc -l | tr -d ' ')
+    bad_files=$(find "$PERM_FD" -name '*.enc' -print0 2>/dev/null | xargs -r0 stat -c '%a %n' | awk '$1 != 600 {print $2}')
+    if [[ -n "$bad_files" ]]; then
+        add_result "security" "hygiene.permissions_keys_0600" "FAIL" "Secret key files have 0600 permissions" \
+            "files not 0600: $bad_files"
+    elif [[ $n_enc -eq 0 ]]; then
+        add_result "security" "hygiene.permissions_keys_0600" "FAIL" "Secret key files have 0600 permissions" \
+            "no *.enc files found in the throwaway identity — fixture incomplete"
+    else
+        add_result "security" "hygiene.permissions_keys_0600" "PASS" "Secret key files have 0600 permissions" \
+            "all $n_enc *.enc files are 0600 in the throwaway identity dir"
+    fi
+else
+    add_result "security" "hygiene.no_temp_leaks" "FAIL" "No temp files remain after success" \
+        "fixture creation failed — see hygiene.permissions_fixture"
+    add_result "security" "hygiene.permissions_dirs_0700" "FAIL" "Data directories created with 0700" \
+        "fixture creation failed — see hygiene.permissions_fixture"
+    add_result "security" "hygiene.permissions_keys_0600" "FAIL" "Secret key files have 0600 permissions" \
+        "fixture creation failed — see hygiene.permissions_fixture"
+fi
 
 run_test "security" "hygiene.network_blocked" \
     "if unshare -rn true 2>/dev/null; then unshare -rn bash -c 'getent hosts example.invalid 2>/dev/null | wc -l | xargs -I{} test {} -eq 0' && echo PASS || echo FAIL; else echo 'SKIP: unshare requires root; canary is exercised by the CI test job'; fi" \
