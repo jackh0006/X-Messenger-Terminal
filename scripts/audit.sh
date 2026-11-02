@@ -136,7 +136,7 @@ run_skip "security" "crypto.full_test_suite" \
 echo "--- Section 2: Input Validation ---"
 
 run_skip "security" "input.validation_suite" \
-    "audit does not run the bats suite yet (Stage 1.8 item 6 pending); exercised by T03 T04 T05 FZ01 FZ02 in the CI test job" \
+    "audit does not run the bats suite yet (Stage 1.8 item 6 pending); exercised by T03 T04 T05 T11 T12 in the CI test job" \
     "Input validation exercised by the suite (pending)"
 
 # ============================================================
@@ -269,6 +269,11 @@ run_test "scaffold" "evidence.review_prompt_exists" \
     "test -f \"$REPO_ROOT/docs/REVIEW_ME.md\" && echo PASS || echo FAIL" \
     "docs/REVIEW_ME.md exists" \
     10
+
+run_test "security" "claims.test_ids_covered" \
+    "bash \"$REPO_ROOT/scripts/check-test-ids.sh\" >/dev/null 2>&1 && echo PASS || echo FAIL" \
+    "Every test has a unique ID and every ID is covered by docs/CLAIMS.md" \
+    30
 
 # ============================================================
 # SECTION 7: Advanced Features
