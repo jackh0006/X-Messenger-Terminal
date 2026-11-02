@@ -70,7 +70,8 @@ the results below.**
 
 ### 6. Roadmap stubs stay honest
 
-- [ ] `xc wipe|rotate|prekeys|qr-send|qr-read` all print `NOT IMPLEMENTED: <cmd>` and exit 1
+- [ ] `xc rotate|qr-send|qr-read` still print `NOT IMPLEMENTED: <cmd>` and exit 1
+- [ ] `xc prekeys --help` shows make/import; a make + hand-over + import round trip with a second phone works (see ROADMAP Stage 2)
 
 ### 7. Uninstall
 
