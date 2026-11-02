@@ -33,11 +33,11 @@ raw_score = sum(criterion_score)
 final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 ```
 
-## Current Assessment (Stage 2b — wipe)
+## Current Assessment (Stage 2c — rotate)
 
 | Criterion | Score | Evidence Reference |
 |-----------|-------|-------------------|
-| Standard crypto | **15** | Exercised: tests/01_correctness.bats T01–T05, tests/02_tamper.bats T06–T10 (round-trip, wrong recipient, wrong passphrase, buckets, byte-flip, truncation, re-signed key, replay, expiry) — run inside audit.sh / CI. Below 20 by rule: no independent review yet. |
+| Standard crypto | **15** | Exercised: tests/01_correctness.bats T01–T05, tests/02_tamper.bats T06–T10 (round-trip, wrong recipient, wrong passphrase, buckets, byte-flip, truncation, re-signed key, replay, expiry) — run inside audit.sh / CI. Key rotation is now also implemented AND exercised: `tests/09_rotate.bats` R01–R05 (typed-confirmation replacement, refusal changes nothing, old-key couriers refused, re-added contact round trips with the new keys, `--keep-old` shelves old files; audit row adv.rotate_replacement derives from the suite run). **The ROADMAP's +2 for rotate is NOT granted:** standard crypto is capped at 15/20 until an independent review (Stage 1.8 rule) — the cap holds even though the feature is test-exercised. Claimable upon independent review. |
 | Independent audit | **0** | No audit; audit.sh is a self-check suite (up to 39 checks — the exact count varies by environment because skipped suite tests surface as per-test SKIP rows; statuses PASS/FAIL/SKIP/PLANNED). |
 | Forward secrecy | **5** | Optional one-time prekeys, implemented and exercised: `tests/07_prekeys.bats` K01–K06 — signed per-identity bundles (K01/K04/K05), one distinct key consumed per send and never reused (K01/K02), private half burned only after decrypt AND signature AND replay all pass (K01/K02), garbage never burns a key (K06), exhausted bundle refuses without `--no-forward-secrecy` and falls back with an honest warning (K03). Rubric 10 ("default prekeys") not claimed: a message is sealed to a one-time key only after the friend's bundle is imported; exchanges without bundles use the legacy identity-key path. |
 | Metadata minimization | **10** | No servers/accounts by design (xc, README); offline property exercised by T16 (CANARY: SKIP locally, runs in the rootless CI job) and `unshare` audit check when available. |
@@ -53,4 +53,4 @@ final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 
 | **Final score** | **52 / 100** | |
 
-Changes from the 50 recorded for Stage 2a: endpoint hardening 5→7 — the ONLY change; `xc wipe` is implemented and test-exercised (W01–W03: wrong/empty confirmation deletes nothing, typed `WIPE` erases identity+contacts+one-time keys+everything and prints the honest flash-storage note; the whole-data-dir deletion itself is what the roadmap rewards). Nothing else moved.
+Changes from the 52 recorded for Stage 2b: NOTHING moved, deliberately. `xc rotate` is implemented and test-exercised (R01–R05; new audit row adv.rotate_replacement derived from the suite run), and the ROADMAP maps it to Standard crypto +2 — but the standing rule caps standard crypto at 15/20 until an independent review, so the two points stay unclaimed rather than break the rule. (Endpoint hardening 7, from wipe, is unchanged; wipe's own roadmap line is complete.)
