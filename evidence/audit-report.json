@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "e35dc14f187530c76a9b08c59b357d043288be36",
-    "commit_date": "2026-11-02 12:57:49 +0100",
+    "commit": "9115e9d2d8d3e8582f146682c0f57dfa2f5dd273",
+    "commit_date": "2026-11-02 13:26:11 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,15 +12,15 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-02T11:57:55Z"
+    "audit_timestamp": "2026-11-02T12:26:18Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
       "category": "security",
       "status": "PASS",
-      "message": "Full bats suite (32 tests) passes",
-      "details": "ok: 32, not ok: 0; log: evidence/bats-run.log"
+      "message": "Full bats suite (37 tests) passes",
+      "details": "ok: 37, not ok: 0; log: evidence/bats-run.log"
     },
     {
       "id": "suite_skip_T16",
@@ -226,6 +226,13 @@
       "details": "all K01-K06 rows ok in this suite run\nPASS"
     },
     {
+      "id": "adv.rotate_replacement",
+      "category": "security",
+      "status": "PASS",
+      "message": "Key rotation behind a typed confirmation: refusal changes nothing, old-key couriers become unopenable, re-added contacts round trip, --keep-old shelves old files (suite rows R01-R05 ran inside this audit)",
+      "details": "all R01-R05 rows ok in this suite run\nPASS"
+    },
+    {
       "id": "adv.hardware_keys",
       "category": "scaffold",
       "status": "PLANNED",
@@ -290,8 +297,8 @@
     }
   ],
   "summary": {
-    "total": 39,
-    "PASS": 25,
+    "total": 40,
+    "PASS": 26,
     "FAIL": 0,
     "SKIP": 5,
     "PLANNED": 9
