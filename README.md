@@ -1,12 +1,17 @@
 # X Messenger Terminal
 
 **Command:** `xc`  
-**Status:** Development — not independently audited  
+**Status:** PRE-RELEASE — not independently audited  
 **License:** MIT
 
-> **Honest banner:** This tool has not been independently audited.  
-> It provides offline encrypted messaging with sender authentication and optional forward secrecy via prekeys.  
-> A compromised device exposes everything. Fingerprints must be verified in person.
+> **⚠️ PRE-RELEASE SOFTWARE** — This tool has **not been independently audited**.
+> All releases are labeled **pre-release** (e.g., `v0.x.y-pre`) and **never** "stable".
+> Use at your own risk.
+>
+> - No independent security audit has been performed.
+> - Forward secrecy is **optional only** (via `xc prekeys`); default path uses long-term keys.
+> - A compromised device defeats all protections.
+> - 6-word fingerprints are a **convenience**; verify full fingerprints in person.
 
 ---
 
@@ -28,6 +33,8 @@
 
 - Live chat, groups, multi-device sync
 - Protection against a compromised device
+- Protection against forced unlock
+- Anonymity
 - Protection against forced unlock
 - Anonymity
 

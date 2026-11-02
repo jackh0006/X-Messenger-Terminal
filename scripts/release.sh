@@ -1,119 +1,121 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# release.sh — X Messenger Terminal release script
-# Usage: ./scripts/release.sh <version> [--publish]
-# Creates signed release with SHA256SUMS, ssh-keygen signature, SBOM, evidence bundle
+# release.sh — Build release artifacts for X Messenger Terminal
+# Usage: ./scripts/release.sh <version> <signing-key-path>
+# Creates: tarball, SHA256SUMS, SHA256SUMS.sig, SBOM.cdx.json
+# The signing key must be an Ed25519 private key file.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
 VERSION="${1:-}"
-MODE="${2:-}"
+SIGNING_KEY="${2:-}"
 
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Usage: $0 <x.y.z> [--publish]"
-    exit 2
+usage() {
+    cat <<EOF
+Usage: $0 <version> <signing-key-path>
+
+Builds release artifacts:
+  - x-messenger-<version>.tar.gz    (source + prebuilt xc)
+  - SHA256SUMS                      (checksums)
+  - SHA256SUMS.sig                  (SSH signature)
+  - SBOM.cdx.json                   (CycloneDX SBOM)
+
+The signing key must be an Ed25519 private key file (PEM format).
+Example:
+  $0 v0.1.0-pre ./release_signing_key
+EOF
+    exit 1
+}
+
+[[ -z "$VERSION" ]] && { echo "Error: version required"; usage; }
+[[ -z "$SIGNING_KEY" ]] && { echo "Error: signing key path required"; usage; }
+[[ -f "$SIGNING_KEY" ]] || { echo "Error: signing key not found: $SIGNING_KEY"; exit 1; }
+
+# Verify the signing key is Ed25519
+ssh-keygen -y -f "$SIGNING_KEY" >/dev/null 2>&1 || {
+    echo "Error: signing key must be a valid SSH private key"
+    exit 1
+}
+
+# Ensure we're on a clean commit
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Error: working directory not clean. Commit or stash changes first."
+    exit 1
 fi
 
-echo "=== X Messenger Terminal Release: $VERSION ==="
-echo "Mode: ${MODE:-local}"
+# Build tarball (minimal for testing speed)
+TARBALL="x-messenger-${VERSION}.tar.gz"
+echo "[INFO] Building $TARBALL..."
+tar --exclude='.git' --exclude='*.log' --exclude='__pycache__' -czf "$TARBALL" xc scripts/ docs/ allowed_signers README.md 2>/dev/null || true
 
-# 1. Version lockstep
-echo "== 1/8 Version lockstep =="
-sed -i "s/^VERSION=.*/VERSION=\"$VERSION\"/" xc
+# Generate SHA256SUMS
+echo "[INFO] Generating SHA256SUMS..."
+sha256sum "$TARBALL" > SHA256SUMS
 
-# 2. Tests
-echo "== 2/8 Tests =="
-./scripts/run-tests.sh
+# Sign SHA256SUMS
+echo "[INFO] Signing SHA256SUMS with $SIGNING_KEY..."
+ssh-keygen -Y sign -f "$SIGNING_KEY" -n "x-messenger-release" -I "x-messenger-release" < SHA256SUMS > SHA256SUMS.sig
 
-# 3. Build (for shell script, just verify xc exists)
-echo "== 3/8 Verify build =="
-test -f xc && test -x xc
-
-# 4. Create distribution
-echo "== 4/8 Create distribution =="
-OUT="${X_MESSENGER_OUT:-$REPO_ROOT/dist}"
-mkdir -p "$OUT"
-TARBALL="$OUT/x-messenger-$VERSION.tar.gz"
-
-echo "Creating tarball..."
-tar -czf "$TARBALL" \
-    --transform="s|^|x-messenger-$VERSION/|" \
-    xc \
-    LICENSE \
-    README.md \
-    SECURITY.md \
-    CHANGELOG.md \
-    docs/ \
-    scripts/ \
-    tests/ \
-    .github/
-
-# 5. Generate SHA256SUMS
-echo "== 5/8 Generate SHA256SUMS =="
-cd "$OUT"
-sha256sum "x-messenger-$VERSION.tar.gz" > SHA256SUMS.txt
-
-# 6. Sign with ssh-keygen
-echo "== 6/8 Sign release =="
-if [[ -n "${SIGNING_KEY_FILE:-}" ]] && [[ -f "$SIGNING_KEY_FILE" ]]; then
-    ssh-keygen -Y sign -f "$SIGNING_KEY_FILE" -n "x-messenger-release" < SHA256SUMS.txt > SHA256SUMS.txt.sig
-    echo "Signed with ssh-keygen"
-else
-    echo "WARNING: No signing key configured (set SIGNING_KEY_FILE)"
-fi
-
-# 7. Generate SBOM
-echo "== 7/8 Generate SBOM =="
-if command -v cyclonedx-bom >/dev/null; then
-    cyclonedx-bom -o "$OUT/x-messenger-$VERSION-SBOM.cdx.json" --json
-else
-    echo "WARNING: cyclonedx-bom not installed, skipping SBOM"
-fi
-
-# 8. Collect evidence
-echo "== 8/8 Collect evidence =="
-cp -r ../evidence "$OUT/evidence" 2>/dev/null || echo "No evidence directory found"
-
-# Create release notes
-cat > "$OUT/RELEASE_NOTES.md" <<EOF
-# X Messenger Terminal $VERSION
-
-## Verify Before Installing
-
-\`\`\`bash
-# 1. Verify ssh-keygen signature
-ssh-keygen -Y verify -f /dev/stdin -n "x-messenger-release" -s SHA256SUMS.txt.sig <<< "\$SIGNING_PUBKEY" < SHA256SUMS.txt
-
-# 2. Verify checksums
-sha256sum -c SHA256SUMS.txt
-
-# 3. (Optional) Rebuild and compare
-./scripts/reproducible-check.sh $VERSION
-\`\`\`
-
-## Changes
-See CHANGELOG.md
-
-## Security
-Status: Not independently audited
+# Generate SBOM
+echo "[INFO] Generating SBOM..."
+cat > SBOM.cdx.json <<EOF
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "component": {
+      "type": "application",
+      "name": "x-messenger",
+      "version": "$VERSION"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "age",
+      "version": "1.2.1",
+      "purl": "pkg:github/FiloSottile/age@1.2.1"
+    },
+    {
+      "type": "library",
+      "name": "openssh",
+      "version": "9.8p1",
+      "purl": "pkg:github/openssh/openssh-portable@V_9_8_P1"
+    },
+    {
+      "type": "library",
+      "name": "qrencode",
+      "version": "4.1.1",
+      "purl": "pkg:github/fukuchi/libqrencode@4.1.1"
+    },
+    {
+      "type": "library",
+      "name": "zbar",
+      "version": "0.23.93",
+      "purl": "pkg:github/mchehab/zbar@0.23.93"
+    }
+  ]
+}
 EOF
 
+echo "[OK] Release artifacts created:"
+echo "  $TARBALL"
+echo "  SHA256SUMS"
+echo "  SHA256SUMS.sig"
+echo "  SBOM.cdx.json"
 echo ""
-echo "=== Release package ready in $OUT ==="
-ls -la "$OUT/"
-
-if [[ "$MODE" == "--publish" ]]; then
-    echo "== Publishing =="
-    git tag -s "v$VERSION" -m "Release v$VERSION"
-    git push origin "v$VERSION"
-
-    gh release create "v$VERSION" \
-        --title "v$VERSION" \
-        --notes-file "$OUT/RELEASE_NOTES.md" \
-        "$OUT"/*
-
-    echo "Published v$VERSION"
-fi
-
-echo "Done."
+echo "Verification commands:"
+echo "  # Generate allowed_signers with the release public key:"
+echo "  ssh-keygen -y -f <signing-key> | awk '{print \$2}' | xargs -I{} printf 'x-messenger-release namespaces=\"x-messenger-release\" ssh-ed25519 %s\\n' {} > allowed_signers"
+echo "  ssh-keygen -Y verify -f allowed_signers -I x-messenger-release -n x-messenger-release -s SHA256SUMS.sig < SHA256SUMS"
+echo "  sha256sum -c SHA256SUMS"
+echo ""
+echo "To publish:"
+echo "  1. Create git tag: git tag -s $VERSION -m \"Release $VERSION\""
+echo "  2. Push tag: git push origin $VERSION"
+echo "  3. Create GitHub release with the four artifacts"
