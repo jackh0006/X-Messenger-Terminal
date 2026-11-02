@@ -1,0 +1,6 @@
+# allowed_signers — SSH signing keys authorized to sign X Messenger Terminal releases
+# This file is tracked in the repo; the private key is OFFLINE and never stored here.
+# Format: <pattern> <namespace> <public-key>
+# See ssh-keygen(1) "Allowed Signers" section.
+
+* ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExamplePlaceholderKeyDoNotUseThisInProduction

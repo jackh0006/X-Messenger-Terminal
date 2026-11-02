@@ -19,22 +19,29 @@ From the [releases page](https://github.com/jackh0006/X-Messenger-Terminal/relea
 
 - `x-messenger-<version>.tar.gz` — source + prebuilt `xc` script
 - `SHA256SUMS` — checksums
-- `SHA256SUMS.sig` — ssh-keygen -Y verify signature
+- `SHA256SUMS.sig` — **SSH signature** (signed by offline Ed25519 release key)
 - `SBOM.cdx.json` — CycloneDX SBOM
 - `evidence/audit-report.json` — self-audit results
+- `allowed_signers` — SSH keys authorized to sign releases (shipped in repo)
 
-### 2. Verify Minisign Signature
-
-The ssh-keygen -Y verify public key is in the README and below:
-
-```
-RWQ... (to be generated at first release)
-```
+### 2. Verify SSH Signature (using the shipped allowed_signers file)
 
 ```bash
-# Verify SHA256SUMS signature
-ssh-keygen -Y verify -f /dev/stdin -n "x-messenger-release" -s SHA256SUMS.txt.sig <<< "$SIGNING_PUBKEY" < SHA256SUMS.txt
+# Verify SHA256SUMS signature using the repo's allowed_signers file
+ssh-keygen -Y verify -f allowed_signers -n x-messenger-release -s SHA256SUMS.sig < SHA256SUMS
 ```
+
+**SSH signing public key (verify against second channel):**
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExamplePlaceholderKeyDoNotUseThisInProduction
+```
+
+**Fingerprint:**
+```
+SHA256:ExamplePlaceholderFingerprintDoNotUseThisInProduction
+```
+
+> **⚠️ PRE-RELEASE SOFTWARE** — All releases are labeled **pre-release** (e.g., `v0.x.y-pre`) and **never** "stable". This tool has not been independently audited. Use at your own risk.
 
 ### 3. Verify Checksums
 
@@ -48,6 +55,10 @@ sha256sum -c SHA256SUMS 2>&1 | grep OK
 ```bash
 ./scripts/reproducible-check.sh <version>
 ```
+
+### Offline Signing Key Generation (Release Managers Only)
+
+See [`docs/OFFLINE_SIGNING_KEY.md`](OFFLINE_SIGNING_KEY.md) for the complete procedure to generate the offline Ed25519 signing key, populate `allowed_signers`, and sign releases. The private key **never enters the repo or CI**.
 
 ---
 

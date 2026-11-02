@@ -64,17 +64,17 @@ xc read message.courier
 Every release includes:
 - `x-messenger-<version>.tar.gz` — source + prebuilt binary
 - `SHA256SUMS` — SHA-256 checksums
-- `SHA256SUMS.sig` — minisign signature
+- `SHA256SUMS.sig` — **SSH signature** (signed by offline Ed25519 release key)
 - `SBOM.cdx.json` — CycloneDX SBOM
 - `evidence/audit-report.json` — full self-audit results
 - Release notes with exact verify commands
 
-**Verification steps:**
+**Verification steps (using the shipped `allowed_signers` file):**
 
 ```bash
-# 1. Download all files for the version
-# 2. Verify SHA256SUMS signature (minisign public key in README)
-minisign -Vm SHA256SUMS -P <pubkey-from-readme>
+# 1. Download all files for the version (tarball, SHA256SUMS, .sig, SBOM, evidence)
+# 2. Verify SHA256SUMS signature using the repo's allowed_signers file
+ssh-keygen -Y verify -f allowed_signers -n x-messenger-release -s SHA256SUMS.sig < SHA256SUMS
 
 # 3. Verify tarball checksum
 sha256sum -c SHA256SUMS 2>&1 | grep OK
@@ -83,10 +83,19 @@ sha256sum -c SHA256SUMS 2>&1 | grep OK
 ./scripts/reproducible-check.sh <version>
 ```
 
-**Minisign public key (verify against second channel):**
+**SSH signing public key (verify against second channel):**
 ```
-RWQ... (to be generated at first release)
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExamplePlaceholderKeyDoNotUseThisInProduction
 ```
+
+**Fingerprint:**
+```
+SHA256:ExamplePlaceholderFingerprintDoNotUseThisInProduction
+```
+
+> **⚠️ PRE-RELEASE SOFTWARE** — All releases are labeled **pre-release** (e.g., `v0.x.y-pre`) and **never** "stable". This tool has not been independently audited. Use at your own risk.
+
+**Offline signing key procedure:** [`docs/OFFLINE_SIGNING_KEY.md`](docs/OFFLINE_SIGNING_KEY.md)
 
 ---
 
@@ -114,9 +123,10 @@ RWQ... (to be generated at first release)
 
 ```bash
 # Download release tarball, SHA256SUMS, .sig, SBOM, evidence
-# Verify (see above)
+# Verify (see "Verify Releases" above — uses ssh-keygen + allowed_signers)
 
-# Install (checks deps, verifies checksums/signature, installs to ~/.local/bin or $PREFIX/bin)
+# Install (checks deps, verifies checksums/signature via ssh-keygen -Y verify,
+# installs to ~/.local/bin or $PREFIX/bin)
 ./scripts/install.sh
 
 # Uninstall (keeps keys/contacts by default)

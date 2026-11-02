@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # install.sh — Install X Messenger Terminal (xc)
-# Verifies SHA256SUMS and signature, checks dependencies, installs to ~/.local/bin or $PREFIX/bin
+# Verifies SHA256SUMS signature via ssh-keygen -Y verify against allowed_signers,
+# checks dependencies, installs to ~/.local/bin or $PREFIX/bin
 
 set -euo pipefail
 
@@ -9,7 +10,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$REPO_ROOT/VERSION"
 INSTALL_DIR_LINUX="${HOME}/.local/bin"
 INSTALL_DIR_TERMUX="${PREFIX}/bin"
-SIGNING_PUBKEY=""
+ALLOWED_SIGNERS="$REPO_ROOT/allowed_signers"
 SHA256SUMS_FILE="SHA256SUMS"
 SIGNATURE_FILE="SHA256SUMS.sig"
 DRY_RUN=false
@@ -78,12 +79,12 @@ check_dependencies() {
         log_err "Missing dependencies: ${missing[*]}"
         if [[ "$platform" == "linux" ]]; then
             log_info "Install with: apt update && apt install -y ${missing[*]}"
-        else
+        elif [[ "$platform" == "termux" ]]; then
             log_info "Install with: pkg install ${missing[*]}"
         fi
         return 1
     fi
-    log_ok "All dependencies found"
+    log_ok "All dependencies present"
     return 0
 }
 
@@ -93,34 +94,17 @@ verify_signature() {
         return 0
     fi
 
-    if [[ -z "$SIGNING_PUBKEY" ]]; then
-        log_err "SIGNING_PUBKEY not set in script — cannot verify signature"
-        log_info "Set SIGNING_PUBKEY in install.sh or use --skip-verify (NOT RECOMMENDED)"
-        return 1
-    fi
+    [[ -f "$SHA256SUMS_FILE" ]] || { log_err "SHA256SUMS not found"; return 1; }
+    [[ -f "$SIGNATURE_FILE" ]] || { log_err "SHA256SUMS.sig not found"; return 1; }
+    [[ -f "$ALLOWED_SIGNERS" ]] || { log_err "allowed_signers not found at $ALLOWED_SIGNERS"; return 1; }
 
-    if [[ ! -f "$SHA256SUMS_FILE" ]]; then
-        log_err "SHA256SUMS file not found: $SHA256SUMS_FILE"
-        return 1
-    fi
-
-    if [[ ! -f "$SIGNATURE_FILE" ]]; then
-        log_err "Signature file not found: $SIGNATURE_FILE"
-        return 1
-    fi
-
-    log_info "Verifying ssh-keygen signature on $SHA256SUMS_FILE..."
-    local signers_file
-    signers_file=$(mktemp)
-    printf '* %s\n' "$SIGNING_PUBKEY" > "$signers_file"
-    if ssh-keygen -Y verify -f "$signers_file" -n "x-messenger-release" -s "$SIGNATURE_FILE" < "$SHA256SUMS_FILE" 2>/dev/null; then
+    log_info "Verifying ssh-keygen signature on $SHA256SUMS_FILE against $ALLOWED_SIGNERS..."
+    if ssh-keygen -Y verify -f "$ALLOWED_SIGNERS" -n "x-messenger-release" -s "$SIGNATURE_FILE" < "$SHA256SUMS_FILE" 2>/dev/null; then
         log_ok "Signature verified"
     else
         log_err "Signature verification FAILED"
-        rm -f "$signers_file"
         return 1
     fi
-    rm -f "$signers_file"
 
     log_info "Verifying checksums..."
     if sha256sum -c "$SHA256SUMS_FILE" 2>&1 | grep -q "OK$"; then
