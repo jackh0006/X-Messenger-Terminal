@@ -9,8 +9,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$REPO_ROOT/VERSION"
 INSTALL_DIR_LINUX="${HOME}/.local/bin"
-INSTALL_DIR_TERMUX="${PREFIX}/bin"
-ALLOWED_SIGNERS="$REPO_ROOT/allowed_signers"
+INSTALL_DIR_TERMUX="${PREFIX:-/data/data/com.termux/files/usr}/bin"
+ALLOWED_SIGNERS="${ALLOWED_SIGNERS:-$REPO_ROOT/allowed_signers}"
 SHA256SUMS_FILE="SHA256SUMS"
 SIGNATURE_FILE="SHA256SUMS.sig"
 DRY_RUN=false
@@ -94,9 +94,15 @@ verify_signature() {
         return 0
     fi
 
+    # Fail closed if allowed_signers still contains the placeholder key
+    [[ -f "$ALLOWED_SIGNERS" ]] || { log_err "allowed_signers not found at $ALLOWED_SIGNERS"; return 1; }
+    if grep -q "ExamplePlaceholderKeyDoNotUseThisInProduction" "$ALLOWED_SIGNERS"; then
+        log_err "allowed_signers contains the placeholder key — replace it with a real release signing key before installing"
+        return 1
+    fi
+
     [[ -f "$SHA256SUMS_FILE" ]] || { log_err "SHA256SUMS not found"; return 1; }
     [[ -f "$SIGNATURE_FILE" ]] || { log_err "SHA256SUMS.sig not found"; return 1; }
-    [[ -f "$ALLOWED_SIGNERS" ]] || { log_err "allowed_signers not found at $ALLOWED_SIGNERS"; return 1; }
 
     log_info "Verifying ssh-keygen signature on $SHA256SUMS_FILE against $ALLOWED_SIGNERS..."
     if ssh-keygen -Y verify -f "$ALLOWED_SIGNERS" -n "x-messenger-release" -s "$SIGNATURE_FILE" < "$SHA256SUMS_FILE" 2>/dev/null; then
