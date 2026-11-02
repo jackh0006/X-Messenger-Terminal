@@ -627,7 +627,7 @@ EOF
 		exit 0
 		;;
 	init) cmd_init "$@" ;; id) cmd_id "$@" ;; add) cmd_add "$@" ;; verify) cmd_verify "$@" ;;
-	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe ;; rotate) cmd_rotate ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
+	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe "$@" ;; rotate) cmd_rotate ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
 	--version) echo "X Messenger Terminal $VERSION" ;;
 	menu | "") show_menu ;;
 	*) die "Unknown: $cmd. Run 'xc --help'." ;;
@@ -636,8 +636,31 @@ EOF
 
 trap cleanup_identity EXIT INT TERM HUP
 cmd_wipe() {
-	echo "NOT IMPLEMENTED: wipe" >&2
-	exit 1
+	if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+		echo "Usage: xc wipe"
+		echo "Erases your identity, contacts, one-time keys, replay cache and vault"
+		echo "after you type a confirmation word. There is no undo."
+		exit 0
+	fi
+	[[ $# -gt 0 ]] && die "Unknown: $1. xc wipe takes no options."
+	[[ -d "$DATA_DIR" ]] || die "No data at $DATA_DIR: nothing to wipe."
+	local n_keys n_contacts
+	n_keys=$(find "$PREKEYS_DIR" -name '*.agekey' 2>/dev/null | wc -l | tr -d ' ')
+	n_contacts=$(find "$CONTACTS_DIR" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+	echo "This erases EVERYTHING in $DATA_DIR:"
+	echo "  - your identity (age keys + SSH signing key)"
+	echo "  - $n_contacts contact(s) and $n_keys one-time private key(s)"
+	echo "  - the replay cache (opened-message history) and vault scratch space"
+	local ans
+	read -rp 'Type WIPE (capital letters) to erase everything: ' ans || ans=""
+	if [[ "$ans" != "WIPE" ]]; then
+		die "Wipe cancelled — your data is not deleted. Nothing changed."
+	fi
+	rm -rf -- "$DATA_DIR"
+	echo "Erased: all of $DATA_DIR (identity, contacts, $n_keys one-time keys)."
+	# Honest limitation (KNOWN_LIMITATIONS.md): flash wear leveling means
+	# deletion is never a hardware-level guarantee.
+	echo "Storage note: on flash memory (SSD, SD card, phone storage), wear leveling can leave recoverable fragments at the hardware level. Deletion here is best effort; treat high-risk messages as safe only on an encrypted filesystem."
 }
 
 cmd_rotate() {

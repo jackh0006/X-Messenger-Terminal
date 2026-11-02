@@ -72,6 +72,7 @@ the results below.**
 
 - [ ] `xc rotate|qr-send|qr-read` still print `NOT IMPLEMENTED: <cmd>` and exit 1
 - [ ] `xc prekeys --help` shows make/import; a make + hand-over + import round trip with a second phone works (see ROADMAP Stage 2)
+- [ ] `xc wipe` on a copy dir: lowercase `yes` is refused, `WIPE` erases the whole folder including contacts and one-time keys; after wiping, `xc init` works again
 
 ### 7. Uninstall
 
