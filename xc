@@ -663,12 +663,10 @@ cmd_wipe() {
 			;;
 	esac
 
-	# Refuse if resolved path is under HOME (extra safety)
-	case "$resolved_data" in
-		"$HOME"|"$HOME"/*)
-			die "Refusing to wipe inside HOME: $resolved_data"
-			;;
-	esac
+	# Refuse if resolved path is under HOME (extra safety) - use string prefix
+	if [[ "$resolved_data" = "$HOME" ]] || [[ "$resolved_data" = "$HOME"/* ]]; then
+		die "Refusing to wipe inside HOME: $resolved_data"
+	fi
 
 	# Verify this is an xc data directory by checking for known subdirs
 	[[ -d "$resolved_data/identity" ]] || die "Not an xc data directory: missing identity/"
