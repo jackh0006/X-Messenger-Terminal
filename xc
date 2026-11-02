@@ -627,7 +627,7 @@ EOF
 		exit 0
 		;;
 	init) cmd_init "$@" ;; id) cmd_id "$@" ;; add) cmd_add "$@" ;; verify) cmd_verify "$@" ;;
-	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe "$@" ;; rotate) cmd_rotate ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
+	send) cmd_send "$@" ;; read) cmd_read "$@" ;; doctor) cmd_doctor ;; selftest) cmd_selftest ;; wipe) cmd_wipe "$@" ;; rotate) cmd_rotate "$@" ;; prekeys) cmd_prekeys "$@" ;; qr-send) cmd_qr_send ;; qr-read) cmd_qr_read ;;
 	--version) echo "X Messenger Terminal $VERSION" ;;
 	menu | "") show_menu ;;
 	*) die "Unknown: $cmd. Run 'xc --help'." ;;
@@ -664,8 +664,122 @@ cmd_wipe() {
 }
 
 cmd_rotate() {
-	echo "NOT IMPLEMENTED: rotate" >&2
-	exit 1
+	# Replaces the identity (age + SSH signing keys) with a brand-new pair.
+	# Order is deliberate: identity check, then the typed confirmation, and
+	# only then any prompt that costs the user a passphrase. Old keys are
+	# destroyed unless --keep-old shelves them (still encrypted).
+	if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+		echo "Usage: xc rotate [--keep-old]"
+		echo "Replaces your age + SSH keys with a new pair encrypted with a"
+		echo "passphrase you type in this terminal."
+		echo "  - Your fingerprint CHANGES: every contact must re-verify you."
+		echo "  - Couriers sealed to the OLD key can no longer be opened."
+		echo "  - --keep-old shelves the old encrypted key files in identity.old/"
+		echo "    instead of destroying them."
+		exit 0
+	fi
+	local keep_old=false arg
+	for arg in "$@"; do
+		case "$arg" in
+		--keep-old) keep_old=true ;;
+		*) die "Unknown: $arg. Usage: xc rotate [--keep-old]" ;;
+		esac
+	done
+	[[ -f "$IDENTITY_DIR/age.pub" ]] || die "No identity to rotate. Run 'xc init' first."
+	[[ -f "$IDENTITY_DIR/age.priv.enc" && -f "$IDENTITY_DIR/ssh.enc" ]] || die "Identity key files are incomplete; run 'xc init' again instead (or 'xc wipe' first)."
+	local names="" n_contacts=0 f name
+	for f in "$CONTACTS_DIR"/*.json; do
+		[[ -f "$f" ]] || continue
+		name=$(basename "$f" .json)
+		names+="${names:+, }$name"
+		n_contacts=$((n_contacts + 1))
+	done
+	echo "Rotating replaces your age + SSH keys with a brand-new pair:"
+	echo "  - your fingerprint CHANGES and ${names:-none} must re-verify you"
+	echo "  - couriers sealed to the OLD key can no longer be opened"
+	if [[ "$keep_old" == true ]]; then
+		echo "  - (--keep-old) the old ENCRYPTED key files are shelved in identity.old/"
+	else
+		echo "  - the old key files are destroyed"
+	fi
+	local ans
+	read -rp 'Type ROTATE (capital letters) to replace your keys: ' ans || ans=""
+	if [[ "$ans" != "ROTATE" ]]; then
+		die "Rotation cancelled — your keys are not changed. Nothing changed."
+	fi
+	local stage="$DATA_DIR/.rotate-new"
+	rm -rf "$stage"
+	mkdir -p "$stage"
+	chmod 700 "$stage"
+	age-keygen -o "$stage/age.priv" 2>/dev/null || {
+		rm -rf "$stage"
+		die "age-keygen failed"
+	}
+	age-keygen -y "$stage/age.priv" >"$stage/age.pub" 2>/dev/null || {
+		rm -rf "$stage"
+		die "could not derive the new age public key"
+	}
+	chmod 600 "$stage/age.priv"
+	ssh-keygen -t ed25519 -N "" -f "$stage/ssh" -C "xc-rotated-$(date +%s)" >/dev/null || {
+		rm -rf "$stage"
+		die "ssh-keygen failed"
+	}
+	chmod 600 "$stage/ssh"
+	# Prove the fresh pair is self-consistent BEFORE encryption, using no
+	# passphrase at all: every inconsistency dies here, before prompts.
+	if [[ "$(age-keygen -y "$stage/age.priv" 2>/dev/null)" != "$(cat "$stage/age.pub")" ]]; then
+		rm -rf "$stage"
+		die "the generated age keypair failed its consistency check"
+	fi
+	if [[ "$(ssh-keygen -y -f "$stage/ssh" | awk '{print $2}')" != "$(awk '{print $2}' "$stage/ssh.pub")" ]]; then
+		rm -rf "$stage"
+		die "the generated SSH keypair failed its consistency check"
+	fi
+	age -p -a -e -o "$stage/age.priv.enc" "$stage/age.priv" || {
+		rm -rf "$stage"
+		die "could not encrypt the new age key"
+	}
+	shred -u "$stage/age.priv" 2>/dev/null || rm -f "$stage/age.priv"
+	age -p -a -e -o "$stage/ssh.enc" "$stage/ssh" || {
+		rm -rf "$stage"
+		die "could not encrypt the new SSH key"
+	}
+	shred -u "$stage/ssh" 2>/dev/null || rm -f "$stage/ssh"
+	chmod 600 "$stage/age.priv.enc" "$stage/ssh.enc"
+	# Commit: shelve or destroy the old keys first, then move the new ones in.
+	if [[ "$keep_old" == true ]]; then
+		mkdir -p "$DATA_DIR/identity.old"
+		chmod 700 "$DATA_DIR/identity.old"
+		if [[ -e "$DATA_DIR/identity.old/age.priv.enc" ]]; then
+			rm -rf "$stage"
+			die "identity.old already holds keys from an earlier rotation; deal with $DATA_DIR/identity.old first."
+		fi
+		mv "$IDENTITY_DIR/age.priv.enc" "$IDENTITY_DIR/ssh.enc" "$IDENTITY_DIR/age.pub" "$IDENTITY_DIR/ssh.pub" "$DATA_DIR/identity.old/" || {
+			rm -rf "$stage"
+			die "could not shelve the old keys"
+		}
+	else
+		shred -u "$IDENTITY_DIR/age.priv.enc" "$IDENTITY_DIR/ssh.enc" 2>/dev/null || rm -f "$IDENTITY_DIR/age.priv.enc" "$IDENTITY_DIR/ssh.enc"
+		rm -f "$IDENTITY_DIR/age.pub" "$IDENTITY_DIR/ssh.pub"
+	fi
+	mv "$stage/age.priv.enc" "$stage/age.pub" "$stage/ssh.enc" "$stage/ssh.pub" "$IDENTITY_DIR/" || die "could not install the new keys"
+	rm -rf "$stage"
+	# New id table straight from the new public files — no second prompt.
+	local fp
+	fp=$(get_fingerprint)
+	{
+		echo "Age: $(cat "$IDENTITY_DIR/age.pub")"
+		echo "SSH: $(cat "$IDENTITY_DIR/ssh.pub")"
+		echo "Fingerprint: $fp"
+		echo "6-word: $(fingerprint_words "$fp" 6)"
+		echo "8-word: $(fingerprint_words "$fp" 8)"
+	}
+	log_ok "Rotated: new identity created, encrypted with the passphrase you typed."
+	echo "WARNING: your fingerprint CHANGED. Every contact must re-verify your new identity: ${names:-you have no contacts yet}."
+	echo "Couriers sealed to the OLD key can no longer be opened."
+	if [[ "$keep_old" == true ]]; then
+		echo "Old keys kept (still encrypted) in $DATA_DIR/identity.old"
+	fi
 }
 
 cmd_prekeys() {

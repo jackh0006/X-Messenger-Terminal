@@ -11,7 +11,7 @@ This document lists every known limitation, weakness, and caveat of X Messenger 
 | **No forward secrecy on default path** | Long-term identity key compromise = all past messages readable | Use `xc prekeys` for forward secrecy | Documented; prekeys optional |
 | **Prekeys not default** | Most users won't enable forward secrecy | Warn in `xc send` if prekeys available but not used | Planned: warn in `xc send` |
 | **Prekey deletion on flash storage is best effort** | Wear leveling may leave private key remnants | Document honestly; recommend encrypted filesystem | Documented in `xc read` output |
-| **No post-compromise security** | No ratcheting; compromise = all future messages at risk until rotate | `xc rotate` generates new keys | Planned for v2 |
+| **No ratcheting** | No per-message keys (except optional one-time prekeys); compromise of the current key exposes future messages until you rotate | `xc rotate` replaces the key pair behind a typed confirmation (tested, R01–R05); messages after the rotation are sealed to the new key | Mitigation shipped; full ratcheting planned for v2 |
 | **No deniability** | Signatures provide non-repudiation (intentional) | Not a goal; this is a courier, not OTR | By design |
 
 ---

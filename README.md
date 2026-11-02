@@ -103,7 +103,7 @@ RWQ... (to be generated at first release)
 | `xc read <file\|->` | Decrypt, verify signature, check replay/expiry, wipe temp |
 | `xc qr-send` / `xc qr-read` | Split/assemble large messages via QR frames |
 | `xc prekeys` | Generate one-time prekeys for forward secrecy |
-| `xc rotate` | New keys, optionally keep old, notify contacts |
+| `xc rotate` | New encrypted keys behind a typed `ROTATE` confirmation; fingerprint changes, contacts must re-verify; `--keep-old` shelves old key files |
 | `xc wipe` | Remove keys/contacts/state (with confirmation) |
 | `xc doctor` | Check tools, permissions, network, history, platform |
 | `xc selftest` | End-to-end encrypt/sign/decrypt/verify with throwaway keys |

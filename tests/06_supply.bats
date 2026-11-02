@@ -7,7 +7,7 @@ load 'test_helper'
 
 @test "T20 supply: stubs print NOT IMPLEMENTED and exit 1; no expect, no minisign, no stdin passphrase flags in xc or scripts" {
     local cmd
-    for cmd in rotate qr-send qr-read; do
+    for cmd in qr-send qr-read; do
         run bash -c "XCOURIER_DATA_DIR='$WORK_DIR/none_T20' '$XC' '$cmd' 2>&1"
         [[ $status -eq 1 ]] || { echo "stub '$cmd' exit should be 1, got $status"; return 1; }
         [[ "$output" == "NOT IMPLEMENTED: $cmd" ]] \

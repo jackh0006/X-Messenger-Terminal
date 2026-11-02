@@ -431,6 +431,11 @@ run_test "security" "adv.forward_secrecy_prekeys" \
     "Offline forward secrecy with one-time prekeys (suite rows K01-K06 ran inside this audit)" \
     10
 
+run_test "security" "adv.rotate_replacement" \
+    "for k in R01 R02 R03 R04 R05; do grep -qE \"^ok [0-9]+ \$k \" '$EVIDENCE_DIR/bats-run.log' 2>/dev/null || { echo \"missing ok row for \$k\"; echo FAIL; exit 0; }; done; echo \"all R01-R05 rows ok in this suite run\"; echo PASS" \
+    "Key rotation behind a typed confirmation: refusal changes nothing, old-key couriers become unopenable, re-added contacts round trip, --keep-old shelves old files (suite rows R01-R05 ran inside this audit)" \
+    10
+
 run_planned "scaffold" "adv.hardware_keys" \
     "not implemented; hardware-backed keys are on the roadmap" \
     "Hardware-backed keys support"
