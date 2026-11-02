@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "215dc6581323af2b04d8e763b37b5358516db037",
-    "commit_date": "2026-11-02 12:39:05 +0100",
+    "commit": "e35dc14f187530c76a9b08c59b357d043288be36",
+    "commit_date": "2026-11-02 12:57:49 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,15 +12,15 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-02T11:39:12Z"
+    "audit_timestamp": "2026-11-02T11:57:55Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
       "category": "security",
       "status": "PASS",
-      "message": "Full bats suite (29 tests) passes",
-      "details": "ok: 29, not ok: 0; log: evidence/bats-run.log"
+      "message": "Full bats suite (32 tests) passes",
+      "details": "ok: 32, not ok: 0; log: evidence/bats-run.log"
     },
     {
       "id": "suite_skip_T16",

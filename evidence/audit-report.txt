@@ -1,5 +1,5 @@
-[PASS] crypto.full_test_suite: Full bats suite (29 tests) passes
-  Details: ok: 29, not ok: 0; log: evidence/bats-run.log
+[PASS] crypto.full_test_suite: Full bats suite (32 tests) passes
+  Details: ok: 32, not ok: 0; log: evidence/bats-run.log
 [SKIP] suite_skip_T16: bats test T16 skipped in this environment
   Details: SKIP: T16 skips itself via skip() in this environment (-r locally); reason: no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok
 [SKIP] suite_skip_T18: bats test T18 skipped in this environment
