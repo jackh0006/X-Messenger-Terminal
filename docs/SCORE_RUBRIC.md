@@ -33,7 +33,7 @@ raw_score = sum(criterion_score)
 final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 ```
 
-## Current Assessment (Stage 2a — prekeys)
+## Current Assessment (Stage 2b — wipe)
 
 | Criterion | Score | Evidence Reference |
 |-----------|-------|-------------------|
@@ -42,15 +42,15 @@ final_score = min(raw_score, cap_audit, cap_signed, cap_evidence)
 | Forward secrecy | **5** | Optional one-time prekeys, implemented and exercised: `tests/07_prekeys.bats` K01–K06 — signed per-identity bundles (K01/K04/K05), one distinct key consumed per send and never reused (K01/K02), private half burned only after decrypt AND signature AND replay all pass (K01/K02), garbage never burns a key (K06), exhausted bundle refuses without `--no-forward-secrecy` and falls back with an honest warning (K03). Rubric 10 ("default prekeys") not claimed: a message is sealed to a one-time key only after the friend's bundle is imported; exchanges without bundles use the legacy identity-key path. |
 | Metadata minimization | **10** | No servers/accounts by design (xc, README); offline property exercised by T16 (CANARY: SKIP locally, runs in the rootless CI job) and `unshare` audit check when available. |
 | Sender auth + replay | **10** | Ed25519 sign-then-encrypt + replay cache exercised by T08 (re-signed wrong key), T09 (replay rejected). |
-| Endpoint hardening | **5** | Exercised by T13 (no plaintext leftovers), T14 (0700 dir / 0600 files), T15 (no passphrase in files or `ps`). FLAG_SECURE/csp not applicable yet (no web app). |
+| Endpoint hardening | **7** | Exercised by T13 (no plaintext leftovers), T14 (0700 dir / 0600 files), T15 (no passphrase in files or `ps`), **and now `tests/08_wipe.bats` W01–W03** — a typed-confirmation whole-data-dir erasure that really deletes everything and states the flash-storage limitation up front. Roadmap +2 for wipe; the remaining roadmap item (hardware keys) is unimplemented. FLAG_SECURE/csp not applicable yet (no web app). |
 | Supply chain & reproducibility | **5** | Exercised by T20 (no expect/minisign/passphrase-CLI in shipped code) + supply.pinned_actions config check + Actions pinned by SHA. No signed release, SBOM, or reproducible build has been exercised (audit rows are PLANNED). |
 | Ease of use | **0** | Rule: counts only after a real user test with non-technical people. C-15 (menu plain-words) is code-only; no user test exists. |
 
-| **Raw total** (15+0+5+10+10+5+5+0) | **50** | |
+| **Raw total** (15+0+5+10+10+7+5+0) | **52** | |
 | **Cap: no audit (75)** | not binding | |
 | **Cap: unsigned releases (65)** | not binding | |
-| **Cap: claims without evidence (60)** | not binding numerically (raw 50 already ≤ 60); note several claim rows (C-14, C-15, C-17–C-19) are code-existence claims without test IDs yet | CLAIMS.md rows map to real test IDs where applicable (claims.test_ids_covered).
+| **Cap: claims without evidence (60)** | not binding numerically (raw 52 already ≤ 60); note several claim rows (C-14, C-15, C-17–C-19) are code-existence claims without test IDs yet | CLAIMS.md rows map to real test IDs where applicable (claims.test_ids_covered).
 
-| **Final score** | **50 / 100** | |
+| **Final score** | **52 / 100** | |
 
-Changes from the 45 recorded for Stage 1.8: forward secrecy 0→5 — the ONLY change; one-time prekeys are implemented and test-exercised (K01–K06 run in this suite, and the audit's adv.forward_secrecy_prekeys check derives from that suite run). "Optional prekeys" per the rubric scale, not 10: a one-time key is used only after the friend's bundle is imported, so no default-on claim is made. Nothing else moved.
+Changes from the 50 recorded for Stage 2a: endpoint hardening 5→7 — the ONLY change; `xc wipe` is implemented and test-exercised (W01–W03: wrong/empty confirmation deletes nothing, typed `WIPE` erases identity+contacts+one-time keys+everything and prints the honest flash-storage note; the whole-data-dir deletion itself is what the roadmap rewards). Nothing else moved.
