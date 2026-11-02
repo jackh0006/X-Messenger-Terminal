@@ -655,12 +655,12 @@ cmd_wipe() {
 
 	# Refuse dangerous paths (exact matches and prefixes)
 	case "$resolved_data" in
-		/|/home|/root|/tmp|/var|/etc|/usr|/opt)
-			die "Refusing to wipe dangerous path: $resolved_data"
-			;;
-		/home/*)
-			die "Refusing to wipe dangerous path: $resolved_data"
-			;;
+	/ | /home | /root | /tmp | /var | /etc | /usr | /opt)
+		die "Refusing to wipe dangerous path: $resolved_data"
+		;;
+	/home/*)
+		die "Refusing to wipe dangerous path: $resolved_data"
+		;;
 	esac
 
 	# Refuse if resolved path is under HOME (extra safety) - use prefix check
