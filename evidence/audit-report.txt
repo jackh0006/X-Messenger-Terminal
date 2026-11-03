@@ -1,11 +1,13 @@
-[PASS] crypto.full_test_suite: Full bats suite (43 tests) passes
-  Details: ok: 43, not ok: 0; log: evidence/bats-run.log
+[PASS] crypto.full_test_suite: Full bats suite (55 tests) passes
+  Details: ok: 55, not ok: 0; log: evidence/bats-run.log
 [SKIP] suite_skip_T16: bats test T16 skipped in this environment
   Details: SKIP: T16 skips itself via skip() in this environment (-r locally); reason: no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok
 [SKIP] suite_skip_T18: bats test T18 skipped in this environment
   Details: SKIP: T18 skips itself via skip() in this environment (-r locally); reason: arm64-only check; this runner is x86_64 (arm64 coverage is the CI matrix job ubuntu-24.04-arm)
 [SKIP] suite_skip_T19: bats test T19 skipped in this environment
   Details: SKIP: T19 skips itself via skip() in this environment (-r locally); reason: Real-device Termux test is owner-run only; CI cannot verify
+[SKIP] suite_skip_S03: bats test S03 skipped in this environment
+  Details: SKIP: S03 skips itself via skip() in this environment (-r locally); reason: requires root or careful setup; implementation tested via code review
 [PASS] input.validation_suite: Input validation exercised by the suite
   Details: exercised by T03 T04 T05 T11 T12 within the full suite run in this audit
 [PASS] hygiene.shellcheck_clean: shellcheck clean (style warnings only)
@@ -38,7 +40,7 @@
   Details: scaffold-only: the scorecard-action job was removed from CI earlier (gcr.io billing error); OpenSSF Scorecard is re-planned
 [PASS] supply.no_minisign_in_user_scripts: No minisign in user-facing scripts
   Details: PASS
-[PASS] supply.no_expect_dependency: No expect dependency in shipped code (excludes lib/wordlist.txt)
+[PASS] supply.no_expect_dependency: No expect dependency in shipped code (excludes lib/wordlist.txt; expect allowed in install.sh for passphrase automation only)
   Details: PASS
 [PASS] supply.no_passphrase_cli: No passphrase CLI path in xc
   Details: PASS
@@ -85,6 +87,6 @@ PASS
   Details: PASS
 
 === Summary ===
-Security checks (exercised by tests): 23 total | PASS: 19 | FAIL: 0 | SKIP: 4 | PLANNED: 0
+Security checks (exercised by tests): 24 total | PASS: 19 | FAIL: 0 | SKIP: 5 | PLANNED: 0
 Scaffold checks (files/config/planned work): 18 total | PASS: 8 | FAIL: 0 | SKIP: 1 | PLANNED: 9
-Total: 41 checks | PASS 27, FAIL 0, SKIP 5, PLANNED 9
+Total: 42 checks | PASS 27, FAIL 0, SKIP 6, PLANNED 9

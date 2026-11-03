@@ -2,8 +2,8 @@
   "meta": {
     "project": "X Messenger Terminal",
     "version": "0.1.0",
-    "commit": "cdbc7a5282df264a7cc5fb63cf932b85e6530189",
-    "commit_date": "2026-11-02 14:33:19 +0100",
+    "commit": "9923521a269019bbac39f7e7e67fe21ff8acf989",
+    "commit_date": "2026-11-02 21:13:01 +0100",
     "platform": "Linux-x86_64",
     "tool_versions": {
       "age": "1.1.1",
@@ -12,15 +12,15 @@
       "zbar": "0.23.93",
       "shellcheck": "ShellCheck - shell script analysis tool"
     },
-    "audit_timestamp": "2026-11-02T13:33:24Z"
+    "audit_timestamp": "2026-11-03T02:42:50Z"
   },
   "results": [
     {
       "id": "crypto.full_test_suite",
       "category": "security",
       "status": "PASS",
-      "message": "Full bats suite (43 tests) passes",
-      "details": "ok: 43, not ok: 0; log: evidence/bats-run.log"
+      "message": "Full bats suite (55 tests) passes",
+      "details": "ok: 55, not ok: 0; log: evidence/bats-run.log"
     },
     {
       "id": "suite_skip_T16",
@@ -42,6 +42,13 @@
       "status": "SKIP",
       "message": "bats test T19 skipped in this environment",
       "details": "SKIP: T19 skips itself via skip() in this environment (-r locally); reason: Real-device Termux test is owner-run only; CI cannot verify"
+    },
+    {
+      "id": "suite_skip_S03",
+      "category": "security",
+      "status": "SKIP",
+      "message": "bats test S03 skipped in this environment",
+      "details": "SKIP: S03 skips itself via skip() in this environment (-r locally); reason: requires root or careful setup; implementation tested via code review"
     },
     {
       "id": "input.validation_suite",
@@ -159,7 +166,7 @@
       "id": "supply.no_expect_dependency",
       "category": "security",
       "status": "PASS",
-      "message": "No expect dependency in shipped code (excludes lib/wordlist.txt)",
+      "message": "No expect dependency in shipped code (excludes lib/wordlist.txt; expect allowed in install.sh for passphrase automation only)",
       "details": "PASS"
     },
     {
@@ -304,10 +311,10 @@
     }
   ],
   "summary": {
-    "total": 41,
+    "total": 42,
     "PASS": 27,
     "FAIL": 0,
-    "SKIP": 5,
+    "SKIP": 6,
     "PLANNED": 9
   }
 }

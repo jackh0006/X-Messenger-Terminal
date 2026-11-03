@@ -1,0 +1,56 @@
+1..55
+ok 1 T01 round trip: send then read returns identical text for several sizes
+ok 2 T02 round trip: unicode, quotes, and shell-looking characters survive
+ok 3 T03 wrong recipient cannot decrypt: charlie cannot open alice's post to bob
+ok 4 T04 wrong passphrase is refused cleanly, no crash
+ok 5 T05 padding: sealed sizes stay inside buckets; oversize is refused before any key work
+ok 6 T06 tamper: a flipped byte in the body is refused
+ok 7 T07 tamper: a truncated courier is refused, never a crash
+ok 8 T08 tamper: re-signed by a wrong key is rejected by the signature check
+ok 9 T09 tamper: replay is rejected on the second read
+ok 10 T10 tamper: an expired message is rejected
+ok 11 T11 fuzz smoke: corrupted-header corpus never crashes, always clean error
+ok 12 T12 fuzz smoke: garbage reaching the decrypt step is refused by age, no crash
+ok 13 T13 hygiene: no plaintext vault or body scratch survives a round trip
+ok 14 T14 hygiene: data dir 0700, sensitive files 0600
+ok 15 T15 hygiene: no passphrase in any data-dir file and none in ps during a run
+ok 16 T16 hygiene: command runs without network access (canary) # skip no unshare mechanism here (userns denied, no passwordless sudo); CI runs this canary as ok
+ok 17 F01 wordlist: 2048 unique words, SHA-256 matches pinned value
+ok 18 F02 fingerprint: test vectors for 6-word and 8-word modes
+ok 19 F03 fingerprint: every index 0..2047 maps to a distinct word
+ok 20 T17 platform: amd64 Linux runs doctor and reports the tool's version
+ok 21 T18 platform: arm64 runner — uname -m is aarch64 and xc runs clean (skips on other arches) # skip arm64-only check; this runner is x86_64 (arm64 coverage is the CI matrix job ubuntu-24.04-arm)
+ok 22 T19 platform: Termux manual checklist exists; the real-phone test stays owner-run (SKIP: owner-run only) # skip Real-device Termux test is owner-run only; CI cannot verify
+ok 23 T20 supply: stubs print NOT IMPLEMENTED and exit 1; no expect, no minisign, no stdin passphrase flags in xc or scripts
+ok 24 K01 prekeys: bundle is signed by maker, import verifies, send/read round trip burns exactly one private half
+ok 25 K02 prekeys: every send consumes the next unused key; a courier re-read is refused after the key burned
+ok 26 K03 prekeys: exhausted bundle refuses to send in plain words; --no-forward-secrecy sends with an honest warning
+ok 27 K04 prekeys: import refuses a bundle made for another identity, and refuses duplicates
+ok 28 K05 prekeys: a tampered public bundle is refused at import, no sender state is written
+ok 29 K06 prekeys: a garbage message addressed to a prekey must NOT burn it
+ok 30 W01 wipe: typed confirmation erases the whole data dir
+ok 31 W02 wipe: wrong or empty confirmation changes nothing
+ok 32 W03 wipe: no data dir backs out with plain words, and init can start over afterwards
+ok 33 R01 rotate: typed confirmation produces a NEW fingerprint and tells every contact to re-verify
+ok 34 R02 rotate: a wrong or empty confirmation changes nothing
+ok 35 R03 rotate: couriers sealed to the old key are honestly unopenable afterwards
+ok 36 R04 rotate: after the friend re-adds the new identity, messaging with the new keys works
+ok 37 R05 rotate: --keep-old preserves the old encrypted key files under identity.old/
+ok 38 Q01 qr: qr-send frames reassemble byte-identically and the courier still opens
+ok 39 Q02 qr: an out-of-range frame index is refused in plain words
+ok 40 Q03 qr: duplicate index with a conflicting chunk is refused; an identical duplicate is accepted
+ok 41 Q04 qr: a missing frame refuses and nothing is written back
+ok 42 Q05 qr: caps and totals are enforced; qr-read needs no identity
+ok 43 Q06 qr fuzz: garbage frames always refuse cleanly, never crash
+ok 44 V01 install: auto-generates key when allowed_signers has placeholder
+ok 45 V02 install: passes when allowed_signers has real key
+ok 46 V03 install: verify_signature function detects placeholder without --skip-verify
+ok 47 V04 install: verify_signature passes with real key (placeholder check only)
+ok 48 S01 wipe: realpath resolves correctly
+ok 49 S02 wipe: refuses symlinked data dir
+ok 50 S03 wipe: refuses dangerous paths (root, home, etc.) # skip requires root or careful setup; implementation tested via code review
+ok 51 S04 wipe: deletes only known subdirs, not parent
+ok 52 S05 wipe: no rm -rf on unchecked variable (code review)
+ok 53 RL01 release: creates artifacts and signature verifies
+ok 54 RL02 release: verify fails when one byte of tarball is changed
+ok 55 RL03 release: verify fails when SHA256SUMS is tampered

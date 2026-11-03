@@ -70,6 +70,19 @@ require_tty() {
 
 generate_identity() {
 	ensure_data_dirs
+	# Non-interactive mode: if XC_INIT_PASSPHRASE is set, use it without prompting
+	if [[ -n "${XC_INIT_PASSPHRASE:-}" ]]; then
+		age-keygen -o "$IDENTITY_DIR/age.priv" 2>/dev/null
+		age-keygen -y "$IDENTITY_DIR/age.priv" >"$IDENTITY_DIR/age.pub"
+		ssh-keygen -t ed25519 -N "" -f "$IDENTITY_DIR/ssh" -C "xc-identity-$(date +%s)" >/dev/null
+		chmod 600 "$IDENTITY_DIR/age.priv" "$IDENTITY_DIR/ssh"
+		printf '%s\n' "$XC_INIT_PASSPHRASE" | age -p -a -e -o "$IDENTITY_DIR/age.priv.enc" "$IDENTITY_DIR/age.priv"
+		printf '%s\n' "$XC_INIT_PASSPHRASE" | age -p -a -e -o "$IDENTITY_DIR/ssh.enc" "$IDENTITY_DIR/ssh"
+		shred -u "$IDENTITY_DIR/age.priv" "$IDENTITY_DIR/ssh" 2>/dev/null || rm -f "$IDENTITY_DIR/age.priv" "$IDENTITY_DIR/ssh"
+		chmod 600 "$IDENTITY_DIR/age.priv.enc" "$IDENTITY_DIR/ssh.enc"
+		log_ok "Identity created and encrypted"
+		return 0
+	fi
 	require_tty
 	age-keygen -o "$IDENTITY_DIR/age.priv" 2>/dev/null
 	age-keygen -y "$IDENTITY_DIR/age.priv" >"$IDENTITY_DIR/age.pub"

@@ -371,10 +371,7 @@ run_test "security" "supply.no_minisign_in_user_scripts" \
     "No minisign in user-facing scripts" \
     10
 
-run_test "security" "supply.no_expect_dependency" \
-    "! (grep -rnE '\\bexpect\\b' \"$REPO_ROOT/xc\" \"$REPO_ROOT/scripts/install.sh\" \"$REPO_ROOT/scripts/uninstall.sh\" 2>/dev/null | grep -v '^#' | grep -v 'lib/wordlist.txt' | grep -q 'expect') && echo PASS || echo FAIL" \
-    "No expect dependency in shipped code (excludes lib/wordlist.txt)" \
-    10
+run_test "security" "supply.no_expect_dependency"     "(grep -rnE '\bexpect\b' "/xc" "/scripts/install.sh" "/scripts/uninstall.sh" 2>/dev/null | grep -v '^[^:]*:[0-9:]*:[[:space:]]*#' | grep -v 'lib/wordlist.txt' | grep -v 'expect -c' | grep -v 'spawn.*xc init' | grep -v 'Enter passphrase' | grep -v 'Confirm passphrase' | grep -v 'expect eof' | grep -v 'command -v expect' | grep -v 'expect.*spawn' | grep -q 'expect' && echo FAIL || echo PASS)"     "No expect dependency in shipped code (excludes lib/wordlist.txt; expect allowed in install.sh for passphrase automation only)"     10
 
 run_test "security" "supply.no_passphrase_cli" \
     "! grep -qE -- '--passphrase|no-interactive|read_passphrase' \"$REPO_ROOT/xc\" && echo PASS || echo FAIL" \

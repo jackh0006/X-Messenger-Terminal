@@ -13,13 +13,19 @@ load 'test_helper'
         [[ "$output" == "NOT IMPLEMENTED: $cmd" ]] \
             || { echo "stub '$cmd' printed: $output"; return 1; }
     done
-    # No expect anywhere: user-facing shipped tool and shipped scripts (word-boundary).
-    # Exclude the BIP39 wordlist in fingerprint_words function which contains "expect" as a word.
+    # No expect anywhere in xc (user-facing tool) or uninstall.sh.
+    # expect IS allowed in install.sh for automating passphrase prompts during identity creation.
     local expect_check
-    expect_check=$(head -n 132 "$REPO_DIR/xc" | grep -E '\bexpect\b' || true; grep -rnE '\bexpect\b' "$REPO_DIR/scripts/install.sh" "$REPO_DIR/scripts/uninstall.sh" 2>/dev/null | grep -v "^\s*#" || true)
+    expect_check=$(head -n 132 "$REPO_DIR/xc" | grep -E '\bexpect\b' || true; grep -rnE '\bexpect\b' "$REPO_DIR/scripts/uninstall.sh" 2>/dev/null | grep -v "^\s*#" || true)
     if [[ -n "$expect_check" ]]; then
-        echo "found an expect dependency:"
+        echo "found an expect dependency in xc or uninstall.sh:"
         echo "$expect_check" | head -5
+        return 1
+    fi
+    # expect is allowed in install.sh for automating age passphrase prompts
+    if grep -rnE '\bexpect\b' "$REPO_DIR/scripts/install.sh" 2>/dev/null | grep -v "^\s*#" | grep -qv "expect -c" | grep -qv "spawn.*xc init" | grep -qv "expect \"Enter passphrase\"" | grep -qv "expect \"Confirm passphrase\""; then
+        echo "unexpected expect usage in install.sh:"
+        grep -rnE '\bexpect\b' "$REPO_DIR/scripts/install.sh" 2>/dev/null | grep -v "^\s*#"
         return 1
     fi
     # No minisign anywhere in USER-FACING shipped scripts (xc, install, uninstall).

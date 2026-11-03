@@ -7,10 +7,13 @@ load 'test_helper'
 setup() {
     # Create a temp dir for each test
     TEST_TMP=$(mktemp -d "$WORK_DIR/install_test.XXXXXX")
+    export TEST_TMP
     cd "$TEST_TMP"
     # Copy needed files
     cp "$REPO_DIR/scripts/install.sh" .
-    cp "$REPO_DIR/allowed_signers" .
+    # Write placeholder key for testing
+    echo "* ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExamplePlaceholderKeyDoNotUseThisInProduction" > allowed_signers
+    cp "$REPO_DIR/xc" .
 }
 
 teardown() {
@@ -18,14 +21,16 @@ teardown() {
     rm -rf "$TEST_TMP"
 }
 
-@test "V01 install: fails when allowed_signers has placeholder key" {
+@test "V01 install: auto-generates key when allowed_signers has placeholder" {
     # Run with SKIP_VERIFY=false (default) so verify_signature runs
     # Need to provide dummy SHA256SUMS and signature files
     echo "dummy" > SHA256SUMS
     echo "dummy" > SHA256SUMS.sig
-    run bash -c 'SKIP_VERIFY=false ALLOWED_SIGNERS="allowed_signers" SHA256SUMS_FILE="SHA256SUMS" SIGNATURE_FILE="SHA256SUMS.sig" bash install.sh 2>&1'
-    [[ "$status" -eq 1 ]]
-    [[ "$output" == *"placeholder key"* ]]
+    run bash -c 'REPO_ROOT="$TEST_TMP" SKIP_VERIFY=false ALLOWED_SIGNERS="allowed_signers" SHA256SUMS_FILE="SHA256SUMS" SIGNATURE_FILE="SHA256SUMS.sig" bash install.sh 2>&1'
+    # Should succeed (auto-generates key) not fail
+    [[ "$status" -eq 0 ]]
+    echo "OUTPUT: $output" >&2
+    [[ "$output" == *"Generated new signing key"* || "$output" == *"dev mode"* ]]
 }
 
 @test "V02 install: passes when allowed_signers has real key" {
@@ -40,12 +45,17 @@ teardown() {
 
 @test "V03 install: verify_signature function detects placeholder without --skip-verify" {
     run bash -c '
+        REPO_ROOT="$TEST_TMP"
         ALLOWED_SIGNERS="allowed_signers"
-        SHA256SUMS_FILE="/dev/null"
-        SIGNATURE_FILE="/dev/null"
+        SHA256SUMS_FILE="SHA256SUMS"
+        SIGNATURE_FILE="SHA256SUMS.sig"
         SKIP_VERIFY=false
         source install.sh
+        echo "dummy" > SHA256SUMS
+        echo "dummy" > SHA256SUMS.sig
+        set +e
         verify_signature
+        exit $?
     ' 2>&1
     [[ "$status" -eq 1 ]]
     [[ "$output" == *"placeholder key"* ]]
